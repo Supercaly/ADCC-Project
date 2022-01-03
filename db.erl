@@ -5,17 +5,17 @@
 -export([
     start_link/0,
     stop_link/0
-    ]).
+]).
 
 % gen_server callbaks.
 -export([
+    code_change/3,
     init/1, 
     handle_call/3, 
     handle_cast/2, 
     handle_info/2, 
-    terminate/2, 
-    code_change/3
-    ]).
+    terminate/2
+]).
 
 % Start an instance of db.
 start_link() ->
@@ -51,29 +51,36 @@ handle_call(create_space, _From, _State) ->
     % Create a new tuple space
     Res = try do_create_new_space()
     catch
-        error:{badmatch,Error} -> Error
+        error:{badmatch, Error} -> 
+            revert_db(),
+            Error
     end,
     {reply, Res, _State};
-handle_call({add_to_space, OtherNodes}, _From, _State) ->
+handle_call({add_to_space, OtherNode}, _From, _State) when is_atom(OtherNode) ->
     % Add this node to given space
-    Res = try do_add_node(OtherNodes)
+    Res = try do_add_node(OtherNode)
     catch
-        error:{badmatch, Error} -> Error
+        error:{badmatch, Error} -> 
+            revert_db(),
+            Error
     end,
     {reply, Res, _State};
 handle_call(remove_from_space, _From, _State) ->
     % Remove this node from the space he's in
     Res = try do_remove_node()
     catch
-        error:{badmatch, Error} -> Error
+        error:{badmatch, Error} -> 
+            revert_db(),
+            Error
     end,
     {reply, Res, _State};
 handle_call(list_nodes, _From, _State) ->
     % List all nodes in the space
-    Nodes = do_list_connected_nodes(),
+    Nodes = list_connected_nodes(),
     {reply, {ok, Nodes}, _State};
 handle_call(stop, _From, _State) ->
     % TODO: Remove stop call
+    % TODO: Determine what happens when db is terminated
     {stop, normal, stopped, _State};
 handle_call(_Request, _From, _State) ->
     {reply, {error, bad_request}, _State}.
@@ -180,18 +187,32 @@ ensure_tables() ->
 copy_tables() -> 
     case mnesia:add_table_copy(tuples_table, node(), disc_copies) of
         {atomic, ok} -> ok;
+        {aborted, {already_exists, tuples_table, _}} -> ok;
         {aborted, Reason} -> {error, Reason}
     end.
 
 % Connects this node to the given space.
 % Returns:
 %   ok | {error, Reason}
-connect(Node) -> 
-    case mnesia:change_config(extra_db_nodes, Node) of
+connect(Node) when is_atom(Node) -> 
+    case mnesia:change_config(extra_db_nodes, [Node]) of
         {ok, [_]} -> ok;
         {ok, []} -> {error, connection_failed};
         {error, Reason} -> {error, Reason}
     end.
+
+% In case of an error reverts the mnesia db
+% to a consistent state.
+revert_db() ->
+    ensure_stopped(),
+    delete_schema(),
+    ensure_started().
+
+% List all nodes connected to the current tuple space.
+% Returns:
+%   [Node]
+list_connected_nodes() ->
+    mnesia:system_info(running_db_nodes).
 
 % Create a new tuple space no matter if we are in one already.
 % This function will return ok or throw a badmatch
@@ -208,7 +229,7 @@ do_create_new_space() ->
 % coping all the tables.
 % This function will return ok or throw a badmatch
 % error if any of his operations goes wrong.
-do_add_node(Node) ->
+do_add_node(Node) when is_atom(Node) ->
     ok = ensure_stopped(),
     ok = delete_schema(),
     ok = ensure_started(),
@@ -225,9 +246,3 @@ do_remove_node() ->
     ok = ensure_stopped(),
     ok = delete_schema(),
     ok = ensure_started().
-
-% List all nodes connected to the current tuple space.
-% Returns:
-%   [Node]
-do_list_connected_nodes() ->
-    mnesia:system_info(running_db_nodes).
