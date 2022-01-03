@@ -33,46 +33,53 @@ init(_Args) ->
     process_flag(trap_exit, true),
     % Start mnesia with the default schema;
     % the schema is manipulated with messages.
-    ensure_started(),
-    {ok, []}.
+    case ensure_started() of
+        ok -> {ok, []};
+        {error, Reason} -> {stop, Reason}
+    end.
 
 % handle_call/3 callback from gen_server.
+% Receives messages:
+%   create_space          |
+%   {add_to_space, Nodes} |
+%   remove_from_space     |
+%   stop                  |
+%
+% Responds with:
+%   ok | {error, Reason
+handle_call(create_space, _From, _State) ->
+    % Create a new tuple space
+    Res = try do_create_new_space()
+    catch
+        error:{badmatch,Error} -> Error
+    end,
+    {reply, Res, _State};
+handle_call({add_to_space, OtherNodes}, _From, _State) ->
+    % Add this node to given space
+    Res = try do_add_node(OtherNodes)
+    catch
+        error:{badmatch, Error} -> Error
+    end,
+    {reply, Res, _State};
+handle_call(remove_from_space, _From, _State) ->
+    % Remove this node from the space he's in
+    Res = try do_remove_node()
+    catch
+        error:{badmatch, Error} -> Error
+    end,
+    {reply, Res, _State};
+handle_call(list_nodes, _From, _State) ->
+    % List all nodes in the space
+    Nodes = do_list_connected_nodes(),
+    {reply, {ok, Nodes}, _State};
 handle_call(stop, _From, _State) ->
+    % TODO: Remove stop call
     {stop, normal, stopped, _State};
 handle_call(_Request, _From, _State) ->
     {reply, {error, bad_request}, _State}.
 
 % handle_cast/2 callback from gen_server.
-% Receives messages:
-%   {create_space}          |
-%   {add_to_space, Nodes}   |
-%   {remove_from_space}     |
-handle_cast({create_space}, _State) ->
-    % Create a new tuple space no matter if we 
-    % are in one already.
-    ensure_stopped(),
-    delete_schema(),
-    create_schema(),
-    ensure_started(),
-    init_tables(),
-    ensure_tables(),
-    {noreply, _State};
-handle_cast({add_to_space, OtherNodes}, _State) ->
-    % Remove old tuple space if exist and join the new one
-    % coping all the tables.
-    ensure_stopped(),
-    delete_schema(),
-    ensure_started(),
-    connect(OtherNodes),
-    copy_tables(),
-    ensure_tables(),
-    {noreply, _State};
-handle_cast({remove_from_space}, _State) ->
-    % Deleting the schema it's the only thing
-    % in order to exit from the tuple space.
-    ensure_stopped(),
-    delete_schema(),
-    ensure_started(),
+handle_cast(_Msg, _State) ->
     {noreply, _State}.
 
 % handle_info/2 callback from gen_server.
@@ -92,23 +99,27 @@ code_change(_OldVsn, _State, _Extra) ->
 %%%%%%%%%%%%%%%%%%%%
 
 % Ensures mnesia db is running.
+% Returns:
+%   ok | {error, Reason}
 ensure_started() -> 
     mnesia:start(),
-    wait_for(start),
-    ok.
+    wait_for(start).
 
 % Ensures mnesia db is not running.
+% Returns:
+%   ok | {error, Reason}
 ensure_stopped() -> 
     mnesia:stop(),
-    wait_for(stop),
-    ok.
+    wait_for(stop).
 
 % Wait for mnesia db to start/stop.
+% Returns:
+%   ok | {error, Reason}
 wait_for(start) -> 
     case mnesia:system_info(is_running) of
         yes -> ok;
-        no -> {error, not_running};
-        stopping -> {error, not_running};
+        no -> {error, mnesia_unexpectedly_not_running};
+        stopping -> {error, mnesia_unexpectedly_stopping};
         starting -> 
             timer:sleep(1000),
             wait_for(start)
@@ -116,34 +127,107 @@ wait_for(start) ->
 wait_for(stop) -> 
     case mnesia:system_info(is_running) of
         no -> ok;
-        yes -> {error, running};
-        starting -> {error, running};
+        yes -> {error, mnesia_unexpectedly_running};
+        starting -> {error, mnesia_unexpectedly_starting};
         stopping -> 
             timer:sleep(1000),
             wait_for(stop)
     end.
 
-
+% Creates a mnesia scheme as disc_copies.
+% Returns:
+%   ok | {error, Reason}
 create_schema() -> 
-    mnesia:change_table_copy_type(schema, node(), disc_copies).
+    case mnesia:change_table_copy_type(schema, node(), disc_copies) of
+        {atomic, ok} -> ok;
+        {aborted, {already_exists, schema, _, _}} -> ok;
+        {aborted, Reason} -> {error, Reason}
+    end.
 
+% Deletes a mnesia scheme.
+% Returns:
+%   ok | {error, Reason}
 delete_schema() -> 
     mnesia:delete_schema([node()]).
 
+% Init all the tables for the tuple space.
+% Returns:
+%   ok | {error, Reason}
 init_tables() -> 
-    mnesia:create_table(
+    case mnesia:create_table(
         tuples_table, 
         [
             {type, bag}, 
             {disc_copies, [node()]}
-        ]).
+        ]) of
+            {atomic, ok} -> ok;
+            {aborted, Reason} -> {error, Reason}
+    end.
 
+% Ensure all the tables are loaded before using them.
+% Returns:
+%   ok | {error, Reason}
 ensure_tables() -> 
-    mnesia:wait_for_tables([tuples_table], 2000),
-    ok.
+    case mnesia:wait_for_tables([tuples_table], 2000) of
+        ok -> ok;
+        {error, Reason} -> {error, Reason};
+        {timeout, _} -> {error, ensure_tables_timeout}
+    end.
 
-copy_tables() -> mnesia:add_table_copy(tuples_table, node(), disc_copies),ok.
+% Copies all the tables from the space.
+% Returns:
+%   ok | {error, Reason}
+copy_tables() -> 
+    case mnesia:add_table_copy(tuples_table, node(), disc_copies) of
+        {atomic, ok} -> ok;
+        {aborted, Reason} -> {error, Reason}
+    end.
 
+% Connects this node to the given space.
+% Returns:
+%   ok | {error, Reason}
 connect(Node) -> 
-    mnesia:change_config(extra_db_nodes, Node),
-    ok.
+    case mnesia:change_config(extra_db_nodes, Node) of
+        {ok, [_]} -> ok;
+        {ok, []} -> {error, connection_failed};
+        {error, Reason} -> {error, Reason}
+    end.
+
+% Create a new tuple space no matter if we are in one already.
+% This function will return ok or throw a badmatch
+% error if any of his operations goes wrong.
+do_create_new_space() ->
+    ok = ensure_stopped(),
+    ok = delete_schema(),
+    ok = ensure_started(),
+    ok = create_schema(),
+    ok = init_tables(),
+    ok = ensure_tables().
+
+% Remove old tuple space if exist and join the new one 
+% coping all the tables.
+% This function will return ok or throw a badmatch
+% error if any of his operations goes wrong.
+do_add_node(Node) ->
+    ok = ensure_stopped(),
+    ok = delete_schema(),
+    ok = ensure_started(),
+    ok = connect(Node),
+    ok = create_schema(),
+    ok = copy_tables(),
+    ok = ensure_tables().
+
+% Deleting the schema it's the only thing in order 
+% to exit from the tuple space.
+% This function will return ok or throw a badmatch
+% error if any of his operations goes wrong.
+do_remove_node() ->
+    ok = ensure_stopped(),
+    ok = delete_schema(),
+    ok = ensure_started().
+
+% List all nodes connected to the current tuple space.
+% Returns:
+%   [Node]
+do_list_connected_nodes() ->
+    mnesia:system_info(running_db_nodes).
