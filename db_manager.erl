@@ -1,4 +1,4 @@
--module(db).
+-module(db_manager).
 
 -behaviour(gen_server).
 
@@ -21,7 +21,7 @@
     terminate/2
 ]).
 
--import(log, [logi/1,logw/1,loge/1]).
+-import(logger, [logi/1,logw/1,loge/1]).
 
 % Creates a new tuple space local to this node.
 -spec create_new_space() -> ok | {error, term()}.
@@ -47,6 +47,7 @@ list_nodes() ->
 start_link() ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 
+% TODO: Remove stop_link/0 if stop call is removed
 stop_link() ->
     gen_server:call(?MODULE, stop).
 
@@ -61,10 +62,10 @@ init(_Args) ->
     % the schema is manipulated with messages.
     case ensure_started() of
         ok -> 
-            logw("db: initialized"),
+            logi("db_manager: initialized"),
             {ok, []};
         {error, Reason} -> 
-            loge({"db: error initializing", Reason}),
+            loge({"db_manager: error initializing", Reason}),
             {stop, Reason}
     end.
 
@@ -83,10 +84,10 @@ handle_call(create_space, _From, _State) ->
     % Create a new tuple space
     Res = try 
         do_create_new_space(),
-        logi("New Tuple Space created")
+        logi("db_manager: new space created")
     catch
         error:{badmatch, Error} -> 
-            loge("Error creating new Tuple Space"),
+            loge("db_manager: error creating new space"),
             revert_db(),
             Error
     end,
@@ -95,10 +96,10 @@ handle_call({add_to_space, OtherNode}, _From, _State) when is_atom(OtherNode) ->
     % Add this node to given space
     Res = try 
         do_add_node(OtherNode),
-        logi("Node added to Tuple Space")
+        logi("db_manager: node added to space")
     catch
         error:{badmatch, Error} ->
-            loge({"Error adding node to Tuple Space", OtherNode, node()}),
+            loge({"db_manager: error adding node to space", node(), OtherNode}),
             revert_db(),
             Error
     end,
@@ -107,10 +108,10 @@ handle_call(remove_from_space, _From, _State) ->
     % Remove this node from the space he's in
     Res = try 
         do_remove_node(),
-        logi("Node removed from Tuple Space")
+        logi("db_manager: node removed from space")
     catch
         error:{badmatch, Error} -> 
-            loge("Error removing node from Tuple Space"),
+            loge("db_manager: error removing node from space"),
             revert_db(),
             Error
     end,
@@ -128,22 +129,22 @@ handle_call(_Request, _From, _State) ->
 
 % handle_cast/2 callback from gen_server.
 handle_cast(_Msg, _State) ->
-    logw({"db: cast message received", _Msg}),
+    logi({"db_manager: cast message received", _Msg}),
     {noreply, _State}.
 
 % handle_info/2 callback from gen_server.
 handle_info(_Info, _State) ->
-    logw({"db: info message received", _Info}),
+    logi({"db_manager: info message received", _Info}),
     {noreply, _State}.
 
 % terminate/2 callback from gen_server.
 terminate(_Reason, _State) ->
-    logi({"db: terminating", _Reason}),
+    logi({"db_manager: terminated", _Reason}),
     ok.
 
 % code_change/3 callback from gen_server.
 code_change(_OldVsn, _State, _Extra) ->
-    logi({"db: code changed", _OldVsn}),
+    logi({"db_manager: code changed", _OldVsn}),
     {ok, _State}.
 
 %%%%%%%%%%%%%%%%%%%%
