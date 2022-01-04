@@ -1,4 +1,4 @@
--module(log).
+-module(logger).
 
 -behaviour(gen_event).
 
@@ -24,7 +24,8 @@
 
 -export_type([log_level/0]).
 
--define(LOG_EVENT_MANAGER, log_event_manager).
+-define(LOGGER_EVENT_MANAGER, logger_event_manager).
+-define(LOGGER_EVENT_HANDLER, logger_event_handler).
 
 % Log a given info message to the terminal.
 -spec logi(term()) -> ok.
@@ -41,13 +42,14 @@ loge(Message) -> log(error, Message).
 % Log given message to the terminal with given log level.
 -spec log(log_level(), term()) -> ok.
 log(Level, Message) ->
-    gen_event:notify(?LOG_EVENT_MANAGER, {Level, Message}),
+    gen_event:notify(?LOGGER_EVENT_MANAGER, {Level, Message}),
     ok.
 
-% Start an instance of log_event_manager.
+% Start an instance of LOGGER_EVENT_MANAGER.
 start_link() ->
-    gen_event:start_link({local, ?LOG_EVENT_MANAGER}),
-    gen_event:add_handler(?LOG_EVENT_MANAGER, ?MODULE, []).
+    Res = gen_event:start_link({local, ?LOGGER_EVENT_MANAGER}),
+    gen_event:add_handler(?LOGGER_EVENT_MANAGER, ?LOGGER_EVENT_HANDLER, []),
+    Res.
 
 %%%%%%%%%%%%%%%%%%%%
 % gen_event callbaks
@@ -55,6 +57,7 @@ start_link() ->
 
 % init/1 callback from gen_event.
 init(_Args) -> 
+    do_handle_event({info, "logger: initialized"}),
     {ok, []}.
 
 % handle_event/2 callback from gen_event.
@@ -74,6 +77,7 @@ handle_info(Info, State) ->
 
 % terminate/2 callback from gen_event.
 terminate(_Args, _State) -> 
+    do_handle_event({info, "logger: terminated"}),
     ok.
 
 % code_change/3 callback from gen_event.
