@@ -3,6 +3,10 @@
 -behaviour(gen_server).
 
 -export([
+    add_node_to_space/1,
+    create_new_space/0,
+    list_nodes/0,
+    remove_node_from_space/1,
     start_link/0,
     stop_link/0
 ]).
@@ -16,6 +20,28 @@
     handle_info/2, 
     terminate/2
 ]).
+
+-import(log, [logi/1,logw/1,loge/1]).
+
+% Creates a new tuple space local to this node.
+-spec create_new_space() -> ok | {error, term()}.
+create_new_space() ->
+    call(create_space).
+
+% Adds the given node to this node's tuple space.
+-spec add_node_to_space(node()) -> ok | {error, term()}.
+add_node_to_space(Node) -> 
+    remote_call(Node, {add_to_space, node()}).
+
+% Remove the given node from this node's tuple space.
+-spec remove_node_from_space(node()) -> ok | {error, term()}.
+remove_node_from_space(Node) -> 
+    remote_call(Node, remove_from_space).
+
+% Returns a list of all nodes in this tuple space.
+-spec list_nodes() -> {ok, [node()]} | {error, term()}.
+list_nodes() -> 
+    call(list_nodes).
 
 % Start an instance of db.
 start_link() ->
@@ -34,8 +60,12 @@ init(_Args) ->
     % Start mnesia with the default schema;
     % the schema is manipulated with messages.
     case ensure_started() of
-        ok -> {ok, []};
-        {error, Reason} -> {stop, Reason}
+        ok -> 
+            logw("db: initialized"),
+            {ok, []};
+        {error, Reason} -> 
+            loge({"db: error initializing", Reason}),
+            {stop, Reason}
     end.
 
 % handle_call/3 callback from gen_server.
@@ -43,33 +73,44 @@ init(_Args) ->
 %   create_space          |
 %   {add_to_space, Nodes} |
 %   remove_from_space     |
-%   stop                  |
+%   stop
 %
 % Responds with:
-%   ok | {error, Reason
+%   ok              | 
+%   {ok, Nodes}     |
+%   {error, Reason}
 handle_call(create_space, _From, _State) ->
     % Create a new tuple space
-    Res = try do_create_new_space()
+    Res = try 
+        do_create_new_space(),
+        logi("New Tuple Space created")
     catch
         error:{badmatch, Error} -> 
+            loge("Error creating new Tuple Space"),
             revert_db(),
             Error
     end,
     {reply, Res, _State};
 handle_call({add_to_space, OtherNode}, _From, _State) when is_atom(OtherNode) ->
     % Add this node to given space
-    Res = try do_add_node(OtherNode)
+    Res = try 
+        do_add_node(OtherNode),
+        logi("Node added to Tuple Space")
     catch
-        error:{badmatch, Error} -> 
+        error:{badmatch, Error} ->
+            loge({"Error adding node to Tuple Space", OtherNode, node()}),
             revert_db(),
             Error
     end,
     {reply, Res, _State};
 handle_call(remove_from_space, _From, _State) ->
     % Remove this node from the space he's in
-    Res = try do_remove_node()
+    Res = try 
+        do_remove_node(),
+        logi("Node removed from Tuple Space")
     catch
         error:{badmatch, Error} -> 
+            loge("Error removing node from Tuple Space"),
             revert_db(),
             Error
     end,
@@ -87,18 +128,22 @@ handle_call(_Request, _From, _State) ->
 
 % handle_cast/2 callback from gen_server.
 handle_cast(_Msg, _State) ->
+    logw({"db: cast message received", _Msg}),
     {noreply, _State}.
 
 % handle_info/2 callback from gen_server.
 handle_info(_Info, _State) ->
+    logw({"db: info message received", _Info}),
     {noreply, _State}.
 
 % terminate/2 callback from gen_server.
 terminate(_Reason, _State) ->
+    logi({"db: terminating", _Reason}),
     ok.
 
 % code_change/3 callback from gen_server.
 code_change(_OldVsn, _State, _Extra) ->
+    logi({"db: code changed", _OldVsn}),
     {ok, _State}.
 
 %%%%%%%%%%%%%%%%%%%%
@@ -246,3 +291,22 @@ do_remove_node() ->
     ok = ensure_stopped(),
     ok = delete_schema(),
     ok = ensure_started().
+
+% Makes a call the the local db gen_server.
+% Returns:
+%   GenServerResponse | {error, db_not_running}
+call(Msg) ->
+    case whereis(?MODULE) of
+        undefined -> {error, db_not_running};
+        _Pid -> gen_server:call(?MODULE, Msg)
+    end.
+
+% Makes a call the the remote db gen_server on given node.
+% Returns:
+%   RemoteGenServerResponse | {error, db_not_running}
+% Note: In order to work the local gen_server must be started as well.
+remote_call(RemoteNode, Msg) ->
+    case whereis(?MODULE) of
+        undefined -> {error, db_not_running};
+        _Pid -> gen_server:call({?MODULE, RemoteNode}, Msg)
+    end.
