@@ -1,6 +1,6 @@
 -module(ts).
 
--export([init/1, new/1, out/2, match/2]).
+-export([in/2, init/1, match/2, new/1, out/2, rd/2]).
 
 % Node management
 % addNode(TS, Node) -> ok.
@@ -14,6 +14,7 @@ new(Name) ->
     register(me, self()),
     io:format("Create new tuple space \"~p\"\n", [Name]),
     register(Name, spawn(?MODULE, init, [[]])),
+    ets:new(dataRam, [bag,named_table]),
     {ok}.
 
 init(Data) ->
@@ -28,22 +29,38 @@ init(Data) ->
             NewData = lists:delete(Element, Data),
             init(NewData)
         end;
+      % Message for rd operation
+      {ts_rd, Pid, Pattern} ->
+        case lists:filter(fun(Tuple)-> match(Pattern, Tuple) end, Data) of
+          [] -> init(Data);
+          [Element | _] ->
+            Pid!{ok, Element},
+            init(Data)
+        end;
       % Message for out operation
       {ts_out, Tuple} ->
-	      NewData = Data ++ [Tuple],
-	      me ! {"Got out for tuple", Tuple},
+        NewData = Data ++ [Tuple],
+	      {me,uno@localhost} ! {"Got out for tuple", Tuple},
 	      init(NewData);
       % Unknown message
       _Msg -> 
-        me ! {unknown, _Msg}, 
+        {me,uno@localhost} ! {unknown, _Msg}, 
         init(Data)
     end.
 
-% in(TS, Pattern) -> ok.
+in(TS, Pattern) -> 
+  TS!{ts_in, self(), Pattern},
+  receive
+    {ok, Tuple} -> Tuple
+  end.
 
 % in(TS, Pattern, Timeout) -> ok.
 
-% rd(TS, Pattern) -> ok.
+rd(TS, Pattern) ->
+  TS!{ts_rd, self(), Pattern},
+  receive
+    {ok, Tuple} -> Tuple
+  end.
 
 % rd(TS, Pattern, Timeout) -> ok.
 

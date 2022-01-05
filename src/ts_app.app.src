@@ -1,0 +1,12 @@
+{application,ts_app,
+    [{description, "Tuple Space implementation using OTP"},
+    {vsn, "0.1.0"},
+    {modules, [
+        ts_app,
+        db_manager,
+        logger,
+        main_sup
+    ]},
+    {registered, []},
+    {applications, [kernel, stdlib]},
+    {mod, {ts_app, []}}]}.

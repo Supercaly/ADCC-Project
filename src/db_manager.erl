@@ -139,6 +139,7 @@ handle_info(_Info, _State) ->
 
 % terminate/2 callback from gen_server.
 terminate(_Reason, _State) ->
+    % TODO: Close Mnesia when the db_manager terminate
     logi({"db_manager: terminated", _Reason}),
     ok.
 
