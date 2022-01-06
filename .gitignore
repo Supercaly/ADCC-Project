@@ -1,1 +1,11 @@
 *.beam
+*.app
+
+ct_run.*
+all_runs.html
+index.html
+ct_default.css
+ct_log_cache
+jquery-latest.js
+jquery.tablesorter.min.js
+variables-ct*

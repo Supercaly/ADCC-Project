@@ -21,6 +21,17 @@
     terminate/2
 ]).
 
+% Export internal functions for testing
+-ifdef(TEST).
+-export([
+    ensure_started/0, 
+    ensure_stopped/0, 
+    create_schema/0,
+    delete_schema/0,
+    init_tables/0
+]).
+-endif.
+
 -import(logger, [logi/1,logw/1,loge/1]).
 
 % Creates a new tuple space local to this node.
@@ -47,7 +58,7 @@ list_nodes() ->
 start_link() ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 
-% TODO: Remove stop_link/0 if stop call is removed
+% Stop the instace of db.
 stop_link() ->
     gen_server:call(?MODULE, stop).
 
@@ -84,7 +95,8 @@ handle_call(create_space, _From, _State) ->
     % Create a new tuple space
     Res = try 
         do_create_new_space(),
-        logi("db_manager: new space created")
+        logi("db_manager: new space created"),
+        ok
     catch
         error:{badmatch, Error} -> 
             loge("db_manager: error creating new space"),
@@ -96,7 +108,8 @@ handle_call({add_to_space, OtherNode}, _From, _State) when is_atom(OtherNode) ->
     % Add this node to given space
     Res = try 
         do_add_node(OtherNode),
-        logi("db_manager: node added to space")
+        logi("db_manager: node added to space"),
+        ok
     catch
         error:{badmatch, Error} ->
             loge({"db_manager: error adding node to space", node(), OtherNode}),
@@ -108,7 +121,8 @@ handle_call(remove_from_space, _From, _State) ->
     % Remove this node from the space he's in
     Res = try 
         do_remove_node(),
-        logi("db_manager: node removed from space")
+        logi("db_manager: node removed from space"),
+        ok
     catch
         error:{badmatch, Error} -> 
             loge("db_manager: error removing node from space"),
@@ -121,8 +135,6 @@ handle_call(list_nodes, _From, _State) ->
     Nodes = list_connected_nodes(),
     {reply, {ok, Nodes}, _State};
 handle_call(stop, _From, _State) ->
-    % TODO: Remove stop call
-    % TODO: Determine what happens when db is terminated
     {stop, normal, stopped, _State};
 handle_call(_Request, _From, _State) ->
     {reply, {error, bad_request}, _State}.
@@ -139,7 +151,8 @@ handle_info(_Info, _State) ->
 
 % terminate/2 callback from gen_server.
 terminate(_Reason, _State) ->
-    % TODO: Close Mnesia when the db_manager terminate
+    % TODO: Determine what happens when the db is terminated
+    ensure_stopped(),
     logi({"db_manager: terminated", _Reason}),
     ok.
 

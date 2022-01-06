@@ -24,8 +24,14 @@
 
 -export_type([log_level/0]).
 
+% TODO: Move those constants names in a .hrl file for shearing
 -define(LOGGER_EVENT_MANAGER, logger_event_manager).
--define(LOGGER_EVENT_HANDLER, logger_event_handler).
+-define(LOGGER_EVENT_HANDLER, ?MODULE).
+
+% Export internal functions for testing
+-ifdef(TEST).
+-export([do_handle_event/1, format/2]).
+-endif.
 
 % Log a given info message to the terminal.
 -spec logi(term()) -> ok.
@@ -67,12 +73,12 @@ handle_event(Event, State) ->
 
 % handle_call/2 callback from gen_event.
 handle_call(Request, State) -> 
-    do_handle_event({warning, Request}),
+    do_handle_event({warning, ["logger: call", Request]}),
     {ok, no_reply, State}.
 
 % handle_info/2 callback from gen_event.
 handle_info(Info, State) -> 
-    do_handle_event({info, Info}),
+    do_handle_event({info, ["logger: info", Info]}),
     {ok, State}.
 
 % terminate/2 callback from gen_event.
@@ -86,8 +92,14 @@ code_change(_OldVsn, State, _Extra) ->
 
 % Pretty prints the given log event.
 do_handle_event({Level, Msg}) ->
-    case Level of
-        info -> io:format("I: ~p\n", [Msg]);
-        warning -> io:format("W: ~p\n", [Msg]);
-        error -> io:format("E: ~p\n", [Msg])
-    end.
+    io:put_chars(standard_io, format(Level, Msg)).
+
+% Format the log message in a printable way.
+format(Level, Message) ->
+    LvlStr = case Level of
+        info -> "I";
+        warning -> "W";
+        error -> "E";
+        _ -> "?"
+    end,
+    io_lib:format("~s: ~p~n", [LvlStr, Message]).
