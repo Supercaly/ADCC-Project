@@ -26,9 +26,12 @@
 -export([
     ensure_started/0, 
     ensure_stopped/0, 
+    wait_for/1,
     create_schema/0,
     delete_schema/0,
-    init_tables/0
+    init_tables/0,
+    ensure_tables/0,
+    revert_db/0
 ]).
 -endif.
 
