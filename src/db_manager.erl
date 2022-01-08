@@ -2,11 +2,12 @@
 
 -behaviour(gen_server).
 
+% Public API.
 -export([
-    add_node_to_space/1,
-    create_new_space/0,
-    list_nodes/0,
-    remove_node_from_space/1,
+    add_node_to_space/2,
+    create_new_space/1,
+    list_nodes_in_space/1,
+    remove_node_from_space/2,
     start_link/0,
     stop_link/0
 ]).
@@ -24,44 +25,78 @@
 % Export internal functions for testing
 -ifdef(TEST).
 -export([
+    addme_to_nodes_unsafe/1,
+    add_to_space/1,
+    create_disc_schema/0,
+    create_space/1,
+    delme_to_nodes_unsafe/1,
+    ensure_nodes_table/0,
     ensure_started/0, 
     ensure_stopped/0, 
-    wait_for/1,
-    create_schema/0,
-    delete_schema/0,
-    init_tables/0,
-    ensure_tables/0,
-    revert_db/0
+    init_cluster/0,
+    is_node_in_space/2,
+    nodes_in_space/1,
+    remove_from_space/1,
+    space_exists/1,
+    wait_for/1
 ]).
 -endif.
 
 -import(logger, [logi/1,logw/1,loge/1]).
 
+%%%%%%%%%%%%%%
+% Custom types
+%%%%%%%%%%%%%%
+
+-type space() :: atom().
+-type result() :: ok | {error, Reason :: term()}.
+-type unsafe_result() :: {atomic, ok} | {aborted, Reason :: term()}.
+-type wait_for_type() :: start | stop.
+-type reply() :: ok | {ok, Nodes :: [node()]} | {error, Reason :: term()}.
+
+%%%%%%%%%%%%
+% Public API
+%%%%%%%%%%%%
+
 % Creates a new tuple space local to this node.
--spec create_new_space() -> ok | {error, term()}.
-create_new_space() ->
-    call(create_space).
+-spec create_new_space(SpaceName :: space()) -> reply().
+create_new_space(SpaceName) ->
+    case whereis(?MODULE) of
+        undefined -> {error, db_manager_not_running};
+        _Pid -> gen_server:call(?MODULE, {create_space, SpaceName})
+    end.
 
 % Adds the given node to this node's tuple space.
--spec add_node_to_space(node()) -> ok | {error, term()}.
-add_node_to_space(Node) -> 
-    remote_call(Node, {add_to_space, node()}).
+-spec add_node_to_space(Node :: node(), Space :: space()) -> reply().
+add_node_to_space(Node, Space) -> 
+    case whereis(?MODULE) of
+        undefined -> {error, db_manager_not_running};
+        _Pid -> gen_server:call({?MODULE, Node}, {enter_space, Space})
+    end.
 
 % Remove the given node from this node's tuple space.
--spec remove_node_from_space(node()) -> ok | {error, term()}.
-remove_node_from_space(Node) -> 
-    remote_call(Node, remove_from_space).
+-spec remove_node_from_space(Node :: node(), Space :: space()) -> reply().
+remove_node_from_space(Node, Space) -> 
+    case whereis(?MODULE) of
+        undefined -> {error, db_manager_not_running};
+        _Pid -> gen_server:call({?MODULE, Node}, {exit_space, Space})
+    end.
 
 % Returns a list of all nodes in this tuple space.
--spec list_nodes() -> {ok, [node()]} | {error, term()}.
-list_nodes() -> 
-    call(list_nodes).
+-spec list_nodes_in_space(Space :: space) -> reply().
+list_nodes_in_space(Space) -> 
+    case whereis(?MODULE) of
+        undefined -> {error, db_manager_not_running};
+        _Pid -> gen_server:call(?MODULE, {nodes_in_space, Space})
+    end.
 
 % Start an instance of db.
+-spec start_link() -> term().
 start_link() ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 
 % Stop the instace of db.
+-spec stop_link() -> stopped.
 stop_link() ->
     gen_server:call(?MODULE, stop).
 
@@ -74,68 +109,42 @@ init(_Args) ->
     process_flag(trap_exit, true),
     % Start mnesia with the default schema;
     % the schema is manipulated with messages.
-    case ensure_started() of
+    case init_cluster() of
         ok -> 
             logi("db_manager: initialized"),
             {ok, []};
         {error, Reason} -> 
-            loge({"db_manager: error initializing", Reason}),
+            loge(["db_manager: error initializing", Reason]),
             {stop, Reason}
     end.
 
 % handle_call/3 callback from gen_server.
 % Receives messages:
-%   create_space          |
-%   {add_to_space, Nodes} |
-%   remove_from_space     |
+%   {create_space, Name}    |
+%   {enter_space, Space}    |
+%   {exit_space, Space}     |
+%   {nodes_in_space, Space} |
 %   stop
 %
 % Responds with:
 %   ok              | 
 %   {ok, Nodes}     |
 %   {error, Reason}
-handle_call(create_space, _From, _State) ->
-    % Create a new tuple space
-    Res = try 
-        do_create_new_space(),
-        logi("db_manager: new space created"),
-        ok
-    catch
-        error:{badmatch, Error} -> 
-            loge("db_manager: error creating new space"),
-            revert_db(),
-            Error
-    end,
+handle_call({create_space, Name}, _From, _State) ->
+    % Create a new space with given name
+    Res = create_space(Name),
     {reply, Res, _State};
-handle_call({add_to_space, OtherNode}, _From, _State) when is_atom(OtherNode) ->
+handle_call({enter_space, Space}, _From, _State) ->
     % Add this node to given space
-    Res = try 
-        do_add_node(OtherNode),
-        logi("db_manager: node added to space"),
-        ok
-    catch
-        error:{badmatch, Error} ->
-            loge({"db_manager: error adding node to space", node(), OtherNode}),
-            revert_db(),
-            Error
-    end,
+    Res = add_to_space(Space),
     {reply, Res, _State};
-handle_call(remove_from_space, _From, _State) ->
-    % Remove this node from the space he's in
-    Res = try 
-        do_remove_node(),
-        logi("db_manager: node removed from space"),
-        ok
-    catch
-        error:{badmatch, Error} -> 
-            loge("db_manager: error removing node from space"),
-            revert_db(),
-            Error
-    end,
+handle_call({exit_space, Space}, _From, _State) ->
+    % Remove this node form given space
+    Res = remove_from_space(Space),
     {reply, Res, _State};
-handle_call(list_nodes, _From, _State) ->
-    % List all nodes in the space
-    Nodes = list_connected_nodes(),
+handle_call({nodes_in_space, Space}, _From, _State) ->
+    % List all nodes in given space
+    Nodes = nodes_in_space(Space),
     {reply, {ok, Nodes}, _State};
 handle_call(stop, _From, _State) ->
     {stop, normal, stopped, _State};
@@ -171,6 +180,7 @@ code_change(_OldVsn, _State, _Extra) ->
 % Ensures mnesia db is running.
 % Returns:
 %   ok | {error, Reason}
+-spec ensure_started() -> result().
 ensure_started() -> 
     mnesia:start(),
     wait_for(start).
@@ -178,6 +188,7 @@ ensure_started() ->
 % Ensures mnesia db is not running.
 % Returns:
 %   ok | {error, Reason}
+-spec ensure_stopped() -> result().
 ensure_stopped() -> 
     mnesia:stop(),
     wait_for(stop).
@@ -185,6 +196,7 @@ ensure_stopped() ->
 % Wait for mnesia db to start/stop.
 % Returns:
 %   ok | {error, Reason}
+-spec wait_for(wait_for_type()) -> result().
 wait_for(start) -> 
     case mnesia:system_info(is_running) of
         yes -> ok;
@@ -204,127 +216,162 @@ wait_for(stop) ->
             wait_for(stop)
     end.
 
+% Initialize the main cluster with all the nodes 
+% connected to the colling one.
+% Returns:
+%   ok | {error, Reason}
+-spec init_cluster() -> result().
+init_cluster() ->
+    try
+        ok = ensure_stopped(),
+        ok = mnesia:delete_schema([node()]),
+        ok = ensure_started(),
+        {ok, _} = mnesia:change_config(extra_db_nodes, nodes()),
+        ok = create_disc_schema(),
+        ok = ensure_nodes_table(),
+        ok = mnesia:wait_for_tables([schema, nodes], 2000),
+        ok
+    catch
+        error:{badmatch, {timeout, Tab}} -> {error, {cannot_find_tables, Tab}};
+        error:{badmatch, Error} -> Error
+    end.
+
 % Creates a mnesia scheme as disc_copies.
 % Returns:
 %   ok | {error, Reason}
-create_schema() -> 
+-spec create_disc_schema() -> result().
+create_disc_schema() -> 
     case mnesia:change_table_copy_type(schema, node(), disc_copies) of
         {atomic, ok} -> ok;
         {aborted, {already_exists, schema, _, _}} -> ok;
         {aborted, Reason} -> {error, Reason}
     end.
 
-% Deletes a mnesia scheme.
+% Ensure the nodes table is present in the current cluster
+% every node must have this table so if it's not present we
+% create it.
 % Returns:
 %   ok | {error, Reason}
-delete_schema() -> 
-    mnesia:delete_schema([node()]).
-
-% Init all the tables for the tuple space.
-% Returns:
-%   ok | {error, Reason}
-init_tables() -> 
-    case mnesia:create_table(
-        tuples_table, 
-        [
-            {type, bag}, 
-            {disc_copies, [node()]}
-        ]) of
-            {atomic, ok} -> ok;
-            {aborted, Reason} -> {error, Reason}
+-spec ensure_nodes_table() -> result().
+ensure_nodes_table() ->
+    Exist = lists:member(nodes, mnesia:system_info(tables)),
+    if 
+        not Exist -> 
+            case mnesia:create_table(nodes, 
+                [{type, bag}, {disc_copies, nodes()++[node()]}]) of
+                {atomic, ok} -> ok;
+                {aborted, {already_exists, nodes}} -> ok;
+                {aborted, Reason} -> {error, Reason}
+            end;
+        true -> ok
     end.
 
-% Ensure all the tables are loaded before using them.
+-spec space_exists(Space :: space()) -> boolean().
+space_exists(Space) ->
+    lists:member(Space, mnesia:system_info(tables)).
+
+% Create a new tuple space with given name.
+% This function returns error if a space with the same
+% name already exist.
 % Returns:
 %   ok | {error, Reason}
-ensure_tables() -> 
-    case mnesia:wait_for_tables([tuples_table], 2000) of
-        ok -> ok;
-        {error, Reason} -> {error, Reason};
-        {timeout, _} -> {error, ensure_tables_timeout}
+-spec create_space(Name :: space()) -> result().
+create_space(Name) ->
+    Exist = space_exists(Name),
+    if
+        not Exist -> 
+            try
+                {atomic, ok} = mnesia:create_table(Name, [{type, bag}, {disc_copies, [node()]}]),
+                {atomic, ok} = addme_to_nodes_unsafe(Name),
+                ok
+            catch
+                error:{badmatch, {aborted, Error}} -> {error, Error}
+            end;
+        true -> {error, {space_already_exists, Name}}
     end.
 
-% Copies all the tables from the space.
+% Add this node to the given tuple space.
+% This function returns error if the node is already in the tuple space
 % Returns:
 %   ok | {error, Reason}
-copy_tables() -> 
-    case mnesia:add_table_copy(tuples_table, node(), disc_copies) of
-        {atomic, ok} -> ok;
-        {aborted, {already_exists, tuples_table, _}} -> ok;
-        {aborted, Reason} -> {error, Reason}
+-spec add_to_space(Space :: space()) -> result().
+add_to_space(Space) ->
+    Exist = space_exists(Space),
+    if
+        % the space i want to add me exist
+        Exist -> 
+            IsNodeInSpace = is_node_in_space(node(), Space),
+            if
+                not IsNodeInSpace -> 
+                    % add the node to the space
+                    try
+                        {atomic, ok} = mnesia:add_table_copy(Space, node(), disc_copies),
+                        {atomic, ok} = addme_to_nodes_unsafe(Space),
+                        ok
+                    catch
+                        error:{badmatch,{aborted, Error}} -> {error, Error}
+                    end;
+                true -> {error, {node_already_in_space, Space}}
+            end;
+        true -> {error, {space_not_exists, Space}}
     end.
 
-% Connects this node to the given space.
+% Remove this node from the given tuple space.
+% This function returns error if the node is not in the tuple space
 % Returns:
 %   ok | {error, Reason}
-connect(Node) when is_atom(Node) -> 
-    case mnesia:change_config(extra_db_nodes, [Node]) of
-        {ok, [_]} -> ok;
-        {ok, []} -> {error, connection_failed};
-        {error, Reason} -> {error, Reason}
+-spec remove_from_space(Space :: space()) -> result().
+remove_from_space(Space) ->
+    Exist = space_exists(Space),
+    if
+        Exist ->
+            IsNodeInSpace = is_node_in_space(node(), Space),
+            if
+                IsNodeInSpace ->
+                    % remove the node from space
+                    try
+                        {atomic, ok} = mnesia:del_table_copy(Space, node()),
+                        {atomic, ok} = delme_to_nodes_unsafe(Space),
+                        ok
+                    catch
+                        error:{badmatch, {aborted, Error}} -> {error, Error}
+                    end;
+                true -> {error, {node_not_in_space, Space}}
+            end;
+        true -> {error, {space_not_exists, Space}}
     end.
 
-% In case of an error reverts the mnesia db
-% to a consistent state.
-revert_db() ->
-    ensure_stopped(),
-    delete_schema(),
-    ensure_started().
-
-% List all nodes connected to the current tuple space.
+% List all nodes connected to the given tuple space.
 % Returns:
 %   [Node]
-list_connected_nodes() ->
-    mnesia:system_info(running_db_nodes).
-
-% Create a new tuple space no matter if we are in one already.
-% This function will return ok or throw a badmatch
-% error if any of his operations goes wrong.
-do_create_new_space() ->
-    ok = ensure_stopped(),
-    ok = delete_schema(),
-    ok = ensure_started(),
-    ok = create_schema(),
-    ok = init_tables(),
-    ok = ensure_tables().
-
-% Remove old tuple space if exist and join the new one 
-% coping all the tables.
-% This function will return ok or throw a badmatch
-% error if any of his operations goes wrong.
-do_add_node(Node) when is_atom(Node) ->
-    ok = ensure_stopped(),
-    ok = delete_schema(),
-    ok = ensure_started(),
-    ok = connect(Node),
-    ok = create_schema(),
-    ok = copy_tables(),
-    ok = ensure_tables().
-
-% Deleting the schema it's the only thing in order 
-% to exit from the tuple space.
-% This function will return ok or throw a badmatch
-% error if any of his operations goes wrong.
-do_remove_node() ->
-    ok = ensure_stopped(),
-    ok = delete_schema(),
-    ok = ensure_started().
-
-% Makes a call the the local db gen_server.
-% Returns:
-%   GenServerResponse | {error, db_not_running}
-call(Msg) ->
-    case whereis(?MODULE) of
-        undefined -> {error, db_not_running};
-        _Pid -> gen_server:call(?MODULE, Msg)
+-spec nodes_in_space(Space :: space()) -> [node()].
+nodes_in_space(Space) ->
+    Res = mnesia:transaction(fun() ->
+        mnesia:read(nodes, Space)
+    end),
+    case Res of
+        {atomic, Nodes} -> 
+            lists:map(fun(E) -> 
+                element(3, E)
+            end, Nodes);
+        {aborted, _} -> []
     end.
 
-% Makes a call the the remote db gen_server on given node.
+% Returns true if the given node is in the given space; false otherwise.
 % Returns:
-%   RemoteGenServerResponse | {error, db_not_running}
-% Note: In order to work the local gen_server must be started as well.
-remote_call(RemoteNode, Msg) ->
-    case whereis(?MODULE) of
-        undefined -> {error, db_not_running};
-        _Pid -> gen_server:call({?MODULE, RemoteNode}, Msg)
-    end.
+%   true | false
+-spec is_node_in_space(Node :: node(), Space :: space()) -> boolean().
+is_node_in_space(Node, Space) ->
+    lists:member(Node, nodes_in_space(Space)).
+
+% Add the current node to the given space inside the nodes shared table.
+% This operation is usafe because it resurns unsafe_result like the mnesia ones.
+-spec addme_to_nodes_unsafe(Space :: space()) -> unsafe_result().
+addme_to_nodes_unsafe(Space) ->
+    mnesia:transaction(fun() -> mnesia:write({nodes, Space, node()}) end).
+
+% Remove the current node from the given space inside the nodes shared table.
+% This operation is usafe because it resurns unsafe_result like the mnesia ones.
+-spec delme_to_nodes_unsafe(Space :: space()) -> unsafe_result().
+delme_to_nodes_unsafe(Space) ->
+    mnesia:transaction(fun() -> mnesia:delete_object({nodes, Space, node()}) end).
