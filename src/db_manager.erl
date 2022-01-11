@@ -166,7 +166,7 @@ handle_info(_Info, _State) ->
 
 % terminate/2 callback from gen_server.
 terminate(_Reason, _State) ->
-    % TODO: Determine what happens when the db is terminated
+    % TODO(#3): Determine what happens when the db is terminated
     ensure_stopped(),
     logi({"db_manager: terminated", _Reason}),
     ok.
