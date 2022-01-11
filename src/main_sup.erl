@@ -7,11 +7,20 @@
 % supervisor callbaks.
 -export([init/1]).
 
+%%%%%%%%%%%%
+% Public API
+%%%%%%%%%%%%
+
 % Start a new instance of main_sup.
+-spec start_link() -> term().
 start_link() ->
     supervisor:start_link({local, ?MODULE}, ?MODULE, []).
 
-% init/0 callback from supervisor.
+%%%%%%%%%%%%%%%%%%%%%
+% supervisor callbaks
+%%%%%%%%%%%%%%%%%%%%%
+
+% init/1 callback from supervisor.
 init(_Args) ->
     % TODO: Tune the ration between intensity and period
     SupFlags = #{
@@ -35,6 +44,14 @@ init(_Args) ->
             shutdown => 2000,
             type => worker,
             modules => [db_manager]
+        },
+        #{
+            id => ts_supervisor,
+            start => {ts_supervisor, start_link, []},
+            restart => permanent,
+            shutdown => infinity,
+            type => supervisor,
+            modules => [ts_supervisor]
         }
     ],
 
