@@ -5,9 +5,9 @@
 
 -export([
     all/0,
+    end_per_group/2,
     groups/0,
-    init_per_group/2,
-    end_per_group/2
+    init_per_group/2
 ]).
 
 -export([
@@ -50,13 +50,12 @@ init_per_group(publics, Config) ->
 init_per_group(_, Config) -> Config.
 
 end_per_group(publics, _) -> 
-    gen_server:stop(db_manager),
     gen_event:stop(logger_event_manager),
     ok;
 end_per_group(_, _) -> ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%
-% public API test cases
+% Public API test cases
 %%%%%%%%%%%%%%%%%%%%%%%
 
 create_new_space_test(_Config) ->
@@ -95,7 +94,7 @@ list_nodes_in_space_test(_Config) ->
 %%%%%%%%%%%%%%%%%%%%%
 
 ensure_started_test(_Config) ->
-    clear_db_for_test(),
+    test_helper:clear_db_for_test(),
     
     ?assertMatch(no, mnesia:system_info(is_running)),
     db_manager:ensure_started(),
@@ -104,7 +103,7 @@ ensure_started_test(_Config) ->
     ok.
 
 ensure_stopped_test(_Config) ->
-    clear_db_for_test(),
+    test_helper:clear_db_for_test(),
     mnesia:start(),
     
     ?assertMatch(yes, mnesia:system_info(is_running)),
@@ -114,7 +113,7 @@ ensure_stopped_test(_Config) ->
     ok.
 
 wait_for_test(_Config) ->
-    clear_db_for_test(),
+    test_helper:clear_db_for_test(),
     
     mnesia:start(),
     % wait_for start succed
@@ -130,7 +129,7 @@ wait_for_test(_Config) ->
     ok.
 
 init_cluster_test(_Config) ->
-    clear_db_for_test(),
+    test_helper:clear_db_for_test(),
     mnesia:start(),
     
     ?assertNot(lists:member(nodes, mnesia:system_info(tables))),
@@ -140,7 +139,7 @@ init_cluster_test(_Config) ->
     ok.
 
 create_disc_schema_test(_Config) ->
-    clear_db_for_test(),
+    test_helper:clear_db_for_test(),
     mnesia:start(), 
 
     ?assertEqual(mnesia:table_info(schema, storage_type), ram_copies),
@@ -150,7 +149,7 @@ create_disc_schema_test(_Config) ->
     ok.
 
 ensure_nodes_table_test(_Config) -> 
-    clear_db_for_test(),
+    test_helper:clear_db_for_test(),
     mnesia:start(),
     mnesia:change_table_copy_type(schema, node(), disc_copies),
 
@@ -160,7 +159,7 @@ ensure_nodes_table_test(_Config) ->
     ok.
 
 space_exists_test(_Config) ->
-    clear_db_for_test(),
+    test_helper:clear_db_for_test(),
     mnesia:start(),
     mnesia:create_table(s1, []),
     mnesia:create_table(s2, []),
@@ -172,7 +171,7 @@ space_exists_test(_Config) ->
     ok.
 
 create_space_test(_Config) ->
-    clear_db_for_test(),
+    test_helper:clear_db_for_test(),
     mnesia:start(),
     mnesia:change_table_copy_type(schema, node(), disc_copies),
     mnesia:create_table(nodes, [{type, bag}]),
@@ -204,7 +203,7 @@ add_to_space_test(_Config) ->
     ok.
 
 remove_from_space_test(_Config) ->
-    clear_db_for_test(),
+    test_helper:clear_db_for_test(),
     mnesia:start(),
     mnesia:change_table_copy_type(schema, node(), disc_copies),
     mnesia:create_table(nodes, [{type, bag}]),
@@ -219,7 +218,7 @@ remove_from_space_test(_Config) ->
     ok.
 
 nodes_in_space_test(_Config) ->
-    clear_db_for_test(),
+    test_helper:clear_db_for_test(),
     mnesia:start(),
     mnesia:create_table(nodes, [{type, bag}]),
     mnesia:dirty_write({nodes, test_space, node()}),
@@ -233,7 +232,7 @@ nodes_in_space_test(_Config) ->
     ok.
 
 is_node_in_space_test(_Config) ->
-    clear_db_for_test(),
+    test_helper:clear_db_for_test(),
     mnesia:start(),
     mnesia:create_table(nodes, [{type, bag}]),
     mnesia:dirty_write({nodes, test_space, node()}),
@@ -244,7 +243,7 @@ is_node_in_space_test(_Config) ->
     ok.
 
 addme_to_nodes_unsafe_test(_Config) ->
-    clear_db_for_test(),
+    test_helper:clear_db_for_test(),
     mnesia:start(),
     mnesia:create_table(nodes, [{type, bag}]),
 
@@ -257,7 +256,7 @@ addme_to_nodes_unsafe_test(_Config) ->
     ok.
 
 delme_to_nodes_unsafe_test(_Config) ->
-    clear_db_for_test(),
+    test_helper:clear_db_for_test(),
     mnesia:start(),
     mnesia:create_table(nodes, [{type, bag}]),
     mnesia:dirty_write({nodes, test_space, node()}),
@@ -268,13 +267,4 @@ delme_to_nodes_unsafe_test(_Config) ->
     mnesia:delete_table(nodes),
     ?assertMatch({aborted, _}, db_manager:delme_to_nodes_unsafe(test_space)),
     
-    ok.
-
-%%%%%%%%%%%%%%%%%%
-% Helper functions
-%%%%%%%%%%%%%%%%%%
-
-clear_db_for_test() ->
-    stopped = mnesia:stop(),
-    ok = mnesia:delete_schema([node()]),
     ok.
