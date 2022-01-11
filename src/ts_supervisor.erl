@@ -21,12 +21,15 @@ start_link() ->
     supervisor:start_link({local, ?MODULE}, ?MODULE, []).
 
 % Start a new instance of ts_manager for given space.
--spec add_space_manager(SpaceName :: atom()) -> term().
+-spec add_space_manager(SpaceName :: atom()) -> ts:result().
 add_space_manager(SpaceName) when is_atom(SpaceName) ->
-    supervisor:start_child(?MODULE, [SpaceName]).
+    case supervisor:start_child(?MODULE, [SpaceName]) of
+        {ok, _Child} -> ok;
+        {error, Reason} -> {error, {cant_start_tsmanager, Reason}}
+    end.
 
 % Stop the instance of ts_manager for given space.
--spec del_space_manager(SpaceName :: atom()) -> term().
+-spec del_space_manager(SpaceName :: atom()) -> ts:result().
 del_space_manager(SpaceName) when is_atom(SpaceName) ->
     supervisor:terminate_child(?MODULE, whereis(SpaceName)).
 

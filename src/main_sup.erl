@@ -38,20 +38,20 @@ init(_Args) ->
             modules => dynamic
         },
         #{
-            id => db_manager,
-            start => {db_manager, start_link, []},
-            restart => permanent,
-            shutdown => 2000,
-            type => worker,
-            modules => [db_manager]
-        },
-        #{
             id => ts_supervisor,
             start => {ts_supervisor, start_link, []},
             restart => permanent,
             shutdown => infinity,
             type => supervisor,
             modules => [ts_supervisor]
+        },
+        #{
+            id => db_manager,
+            start => {db_manager, start_link, []},
+            restart => permanent,
+            shutdown => 2000,
+            type => worker,
+            modules => [db_manager]
         }
     ],
 

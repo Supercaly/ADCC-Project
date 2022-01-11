@@ -44,16 +44,8 @@ stop() ->
 
 % Create a new tuple space with given name.
 -spec new(Name :: atom()) -> t_result(atom()).
-new(Name) when is_atom(Name) -> 
-    case db_manager:create_new_space(Name) of
-        ok -> case ts_supervisor:add_space_manager(Name) of
-                {ok, _} -> {ok, Name};
-                Error -> Error
-            end;
-        Error -> Error
-    end;
-new(_Name) -> 
-    {error, {badarg, _Name}}.
+new(Name) -> 
+    db_manager:create_new_space(Name).
 
 % Return a tuple matching given pattern and removes 
 % it from the tuple space.
@@ -88,11 +80,14 @@ rd(Ts, Pattern, Timeout) ->
 out(Ts, Tuple) -> 
     ts_manager:perform_out(Ts, Tuple).
 
+% TODO: addNode/removeNode can be called by node not inside the Space, this mechanic is correct?
 % Add given node to the tuple space.
-addNode(Ts, Node) -> ok.
+addNode(Ts, Node) -> 
+    db_manager:add_node_to_space(Node, Ts).
 
 % Remove given node from the tuple space.
-removeNode(Ts, Node) -> ok.
+removeNode(Ts, Node) -> 
+    db_manager:remove_node_from_space(Node, Ts).
 
 % Return a list of all nodes connected to the tuple space.
 -spec nodes(Ts :: space()) -> t_result([node()]).
