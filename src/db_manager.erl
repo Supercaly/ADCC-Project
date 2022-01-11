@@ -47,7 +47,7 @@
 %%%%%%%%%%%%%%
 % Custom types
 %%%%%%%%%%%%%%
-% TODO: Move custom types in a dedicated .hrl file
+% TODO(#1): Move custom types in a dedicated .hrl file
 
 -type space() :: atom().
 -type result() :: ok | {error, Reason :: term()}.
