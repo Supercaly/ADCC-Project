@@ -4,10 +4,10 @@
 
 % Public API.
 -export([
-    add_node_to_space/2,
+    add_node_to_space/1,
     create_new_space/1,
     list_nodes_in_space/1,
-    remove_node_from_space/2,
+    remove_node_from_space/1,
     start_link/0,
     stop_link/0
 ]).
@@ -47,49 +47,61 @@
 %%%%%%%%%%%%%%
 % Custom types
 %%%%%%%%%%%%%%
-% TODO(#1): Move custom types in a dedicated .hrl file
 
--type space() :: atom().
--type result() :: ok | {error, Reason :: term()}.
 -type unsafe_result() :: {atomic, ok} | {aborted, Reason :: term()}.
 -type wait_for_type() :: start | stop.
--type reply() :: ok | {ok, Nodes :: [node()]} | {error, Reason :: term()}.
 
 %%%%%%%%%%%%
 % Public API
 %%%%%%%%%%%%
 
 % Creates a new tuple space local to this node.
--spec create_new_space(SpaceName :: space()) -> reply().
-create_new_space(SpaceName) ->
+% Returns:
+%   ok | {error, Reason}
+-spec create_new_space(SpaceName :: ts:space()) -> ts:result().
+create_new_space(SpaceName) when is_atom(SpaceName) ->
     case whereis(?MODULE) of
         undefined -> {error, db_manager_not_running};
         _Pid -> gen_server:call(?MODULE, {create_space, SpaceName})
-    end.
+    end;
+create_new_space(SpaceName) ->
+    {error, {badarg, SpaceName}}.
 
-% Adds the given node to this node's tuple space.
--spec add_node_to_space(Node :: node(), Space :: space()) -> reply().
-add_node_to_space(Node, Space) -> 
+% Adds the calling node to this node's tuple space.
+% Returns:
+%   ok | {error, Reason}
+-spec add_node_to_space(Space :: ts:space()) -> ts:result().
+add_node_to_space(Space) when is_atom(Space) -> 
     case whereis(?MODULE) of
         undefined -> {error, db_manager_not_running};
-        _Pid -> gen_server:call({?MODULE, Node}, {enter_space, Space})
-    end.
+        _Pid -> gen_server:call(?MODULE, {enter_space, Space})
+    end;
+add_node_to_space(Space) -> 
+    {error, {badarg, Space}}.
 
-% Remove the given node from this node's tuple space.
--spec remove_node_from_space(Node :: node(), Space :: space()) -> reply().
-remove_node_from_space(Node, Space) -> 
+% Remove the calling node from this node's tuple space.
+% Returns:
+%   ok | {error, Reason}
+-spec remove_node_from_space(Space :: ts:space()) -> ts:result().
+remove_node_from_space(Space) when is_atom(Space) -> 
     case whereis(?MODULE) of
         undefined -> {error, db_manager_not_running};
-        _Pid -> gen_server:call({?MODULE, Node}, {exit_space, Space})
-    end.
+        _Pid -> gen_server:call(?MODULE, {exit_space, Space})
+    end;
+remove_node_from_space(Space) -> 
+    {error, {badarg, Space}}.
 
 % Returns a list of all nodes in this tuple space.
--spec list_nodes_in_space(Space :: space) -> reply().
-list_nodes_in_space(Space) -> 
+% Returns:
+%   {ok, Nodes} | {error, Reason}
+-spec list_nodes_in_space(Space :: ts:space()) -> ts:t_result([node()]).
+list_nodes_in_space(Space) when is_atom(Space) -> 
     case whereis(?MODULE) of
         undefined -> {error, db_manager_not_running};
         _Pid -> gen_server:call(?MODULE, {nodes_in_space, Space})
-    end.
+    end;
+list_nodes_in_space(Space) -> 
+    {error, {badarg, Space}}.
 
 % Start an instance of db.
 -spec start_link() -> term().
@@ -183,7 +195,7 @@ code_change(_OldVsn, _State, _Extra) ->
 % Ensures mnesia db is running.
 % Returns:
 %   ok | {error, Reason}
--spec ensure_started() -> result().
+-spec ensure_started() -> ts:result().
 ensure_started() -> 
     mnesia:start(),
     wait_for(start).
@@ -191,7 +203,7 @@ ensure_started() ->
 % Ensures mnesia db is not running.
 % Returns:
 %   ok | {error, Reason}
--spec ensure_stopped() -> result().
+-spec ensure_stopped() -> ts:result().
 ensure_stopped() -> 
     mnesia:stop(),
     wait_for(stop).
@@ -199,7 +211,7 @@ ensure_stopped() ->
 % Wait for mnesia db to start/stop.
 % Returns:
 %   ok | {error, Reason}
--spec wait_for(wait_for_type()) -> result().
+-spec wait_for(wait_for_type()) -> ts:result().
 wait_for(start) -> 
     case mnesia:system_info(is_running) of
         yes -> ok;
@@ -223,7 +235,7 @@ wait_for(stop) ->
 % connected to the colling one.
 % Returns:
 %   ok | {error, Reason}
--spec init_cluster() -> result().
+-spec init_cluster() -> ts:result().
 init_cluster() ->
     try
         % TODO(#4): Figure out if deleting the schema at every startup is a correct thing to do
@@ -243,7 +255,7 @@ init_cluster() ->
 % Creates a mnesia scheme as disc_copies.
 % Returns:
 %   ok | {error, Reason}
--spec create_disc_schema() -> result().
+-spec create_disc_schema() -> ts:result().
 create_disc_schema() -> 
     case mnesia:change_table_copy_type(schema, node(), disc_copies) of
         {atomic, ok} -> ok;
@@ -256,7 +268,7 @@ create_disc_schema() ->
 % create it.
 % Returns:
 %   ok | {error, Reason}
--spec ensure_nodes_table() -> result().
+-spec ensure_nodes_table() -> ts:result().
 ensure_nodes_table() ->
     Exist = lists:member(nodes, mnesia:system_info(tables)),
     if 
@@ -273,8 +285,8 @@ ensure_nodes_table() ->
 % Returns true if given space exists in the db.
 % Returns:
 %   true | false
--spec space_exists(Space :: space()) -> boolean().
-space_exists(Space) ->
+-spec space_exists(Space :: ts:space()) -> boolean().
+space_exists(Space) when is_atom(Space) ->
     lists:member(Space, mnesia:system_info(tables)).
 
 % Create a new tuple space with given name.
@@ -282,8 +294,8 @@ space_exists(Space) ->
 % name already exist.
 % Returns:
 %   ok | {error, Reason}
--spec create_space(Name :: space()) -> result().
-create_space(Name) ->
+-spec create_space(Name :: ts:space()) -> ts:result().
+create_space(Name) when is_atom(Space) ->
     Exist = space_exists(Name),
     if
         not Exist -> 
@@ -301,8 +313,8 @@ create_space(Name) ->
 % This function returns error if the node is already in the tuple space
 % Returns:
 %   ok | {error, Reason}
--spec add_to_space(Space :: space()) -> result().
-add_to_space(Space) ->
+-spec add_to_space(Space :: ts:space()) -> ts:result().
+add_to_space(Space) when is_atom(Space) ->
     Exist = space_exists(Space),
     if
         % the space i want to add me exist
@@ -327,8 +339,8 @@ add_to_space(Space) ->
 % This function returns error if the node is not in the tuple space
 % Returns:
 %   ok | {error, Reason}
--spec remove_from_space(Space :: space()) -> result().
-remove_from_space(Space) ->
+-spec remove_from_space(Space :: ts:space()) -> ts:result().
+remove_from_space(Space) when is_atom(Space) ->
     Exist = space_exists(Space),
     if
         Exist ->
@@ -351,8 +363,8 @@ remove_from_space(Space) ->
 % List all nodes connected to the given tuple space.
 % Returns:
 %   [Node]
--spec nodes_in_space(Space :: space()) -> [node()].
-nodes_in_space(Space) ->
+-spec nodes_in_space(Space :: ts:space()) -> [node()].
+nodes_in_space(Space) when is_atom(Space) ->
     Res = mnesia:transaction(fun() ->
         mnesia:read(nodes, Space)
     end),
@@ -367,18 +379,18 @@ nodes_in_space(Space) ->
 % Returns true if the given node is in the given space; false otherwise.
 % Returns:
 %   true | false
--spec is_node_in_space(Node :: node(), Space :: space()) -> boolean().
-is_node_in_space(Node, Space) ->
+-spec is_node_in_space(Node :: node(), Space :: ts:space()) -> boolean().
+is_node_in_space(Node, Space) when is_atom(Node), is_atom(Space) ->
     lists:member(Node, nodes_in_space(Space)).
 
 % Add the current node to the given space inside the nodes shared table.
 % This operation is usafe because it resurns unsafe_result like the mnesia ones.
--spec addme_to_nodes_unsafe(Space :: space()) -> unsafe_result().
-addme_to_nodes_unsafe(Space) ->
+-spec addme_to_nodes_unsafe(Space :: ts:space()) -> unsafe_result().
+addme_to_nodes_unsafe(Space) when is_atom(Space) ->
     mnesia:transaction(fun() -> mnesia:write({nodes, Space, node()}) end).
 
 % Remove the current node from the given space inside the nodes shared table.
 % This operation is usafe because it resurns unsafe_result like the mnesia ones.
--spec delme_to_nodes_unsafe(Space :: space()) -> unsafe_result().
-delme_to_nodes_unsafe(Space) ->
+-spec delme_to_nodes_unsafe(Space :: ts:space()) -> unsafe_result().
+delme_to_nodes_unsafe(Space) when is_atom(Space) ->
     mnesia:transaction(fun() -> mnesia:delete_object({nodes, Space, node()}) end).

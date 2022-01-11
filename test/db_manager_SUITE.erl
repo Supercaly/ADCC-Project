@@ -67,14 +67,18 @@ create_new_space_test(_Config) ->
     gen_server:call(db_manager, stop),
     ?assertMatch({error, db_manager_not_running}, db_manager:create_new_space(test_space2)),
     
+    ?assertMatch({error,{badarg,_}}, db_manager:create_new_space(2)),
+    
     ok.
 
 add_node_to_space_test(_Config) -> 
     % TODO: Find a way to test this method.
+    ?assertMatch({error, {badarg,_}}, db_manager:add_node_to_space([a])),
     ok.
 
 remove_node_from_space_test(_Config) -> 
     % TODO: Find a way to test this method.
+    ?assertMatch({error, {badarg,_}}, db_manager:remove_node_from_space([a])),
     ok.
 
 list_nodes_in_space_test(_Config) -> 
@@ -86,6 +90,8 @@ list_nodes_in_space_test(_Config) ->
     ?assertEqual(1, lists:foldl(fun (_, Acc) -> Acc +1 end, 0, Nodes)),
     gen_server:call(db_manager, stop),
     ?assertMatch({error, db_manager_not_running}, db_manager:list_nodes_in_space(test_space)),
+    
+    ?assertMatch({error, {badarg,_}}, db_manager:list_nodes_in_space(2)),
     
     ok.
 
