@@ -47,6 +47,7 @@
 %%%%%%%%%%%%%%
 % Custom types
 %%%%%%%%%%%%%%
+% TODO: Move custom types in a dedicated .hrl file
 
 -type space() :: atom().
 -type result() :: ok | {error, Reason :: term()}.
@@ -114,6 +115,8 @@ init(_Args) ->
             logi("db_manager: initialized"),
             {ok, []};
         {error, Reason} -> 
+            % TODO: Fix error initializing not_active node
+            % starting a node that has some other node where the app is not started causes this
             loge(["db_manager: error initializing", Reason]),
             {stop, Reason}
     end.
@@ -223,6 +226,7 @@ wait_for(stop) ->
 -spec init_cluster() -> result().
 init_cluster() ->
     try
+        % TODO: Figure out if deleting the schema at every startup is a correct thing to do
         ok = ensure_stopped(),
         ok = mnesia:delete_schema([node()]),
         ok = ensure_started(),
@@ -266,6 +270,9 @@ ensure_nodes_table() ->
         true -> ok
     end.
 
+% Returns true if given space exists in the db.
+% Returns:
+%   true | false
 -spec space_exists(Space :: space()) -> boolean().
 space_exists(Space) ->
     lists:member(Space, mnesia:system_info(tables)).
