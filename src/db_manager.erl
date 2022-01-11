@@ -226,7 +226,7 @@ wait_for(stop) ->
 -spec init_cluster() -> result().
 init_cluster() ->
     try
-        % TODO: Figure out if deleting the schema at every startup is a correct thing to do
+        % TODO(#4): Figure out if deleting the schema at every startup is a correct thing to do
         ok = ensure_stopped(),
         ok = mnesia:delete_schema([node()]),
         ok = ensure_started(),
