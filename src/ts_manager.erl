@@ -34,28 +34,35 @@
 % Record for the ts_manager state
 -record(tsstate, {space}).
 
--type space() :: atom().
--type result() :: ok | {error, Reason :: term()}.
--type read_result() :: {ok, Tuple :: tuple()} | {error, Reason :: term()}.
-
 %%%%%%%%%%%%
 % Public API
 %%%%%%%%%%%%
 
 % Perform an out operation on the given tuple space inserting
-% the given tuple in it. 
--spec perform_out(Space :: space(), Tuple :: tuple()) -> result().
-perform_out(Space, Tuple) ->
+% the given tuple in it.
+% Returns:
+%   ok | {error, Reason}
+-spec perform_out(Space :: ts:space(), Tuple :: tuple()) -> ts:result().
+perform_out(Space, Tuple) when is_atom(Space), is_tuple(Tuple) ->
     case whereis(Space) of
         undefined -> {error, {no_space_with_name, Space}};
         _Pid -> gen_server:call(Space, {write_tuple, Tuple})
-    end.
+    end;
+perform_out(Space, Tuple) ->
+    {error, {badarg, Space, Tuple}}.
 
 % Perform a rd operation on the given tuple space.
 % The operation waits until a tuple matching the given pattern is present or
 % after timeout is elapsed. To wait undefinetly pass 'infinity' as timeout.
--spec perform_rd(Space :: space(), Pattern :: tuple(), Timeout :: timeout()) -> read_result().
-perform_rd(Space, Pattern, Timeout) ->
+% Returns:
+%   {ok, Tuple} | {error, Reason}
+-spec perform_rd(Space :: ts:space(), 
+    Pattern :: tuple(), 
+    Timeout :: timeout()) -> ts:t_result(tuple()).
+perform_rd(Space, Pattern, Timeout) when 
+    is_atom(Space), 
+    is_tuple(Pattern), 
+    (Timeout =:= 'infinity') orelse (is_number(Timeout) andalso Timeout >= 0) ->
     case whereis(Space) of
         undefined -> {error, {no_space_with_name, Space}};
         _Pid -> 
@@ -64,13 +71,22 @@ perform_rd(Space, Pattern, Timeout) ->
                 {error, no_tuples} -> subscribe_for_pattern(Space, Pattern, Timeout);
                 Result -> Result
             end
-    end.
+    end;
+perform_rd(Space, Pattern, Timeout) ->
+    {error, {badarg, Space, Pattern, Timeout}}.
 
 % Perform a in operation on the given tuple space (read and deletes a tuple).
 % The operation waits until a tuple matching the given pattern is present or
 % after timeout is elapsed. To wait undefinetly pass 'infinity' as timeout.
--spec perform_in(Space :: space(), Pattern :: tuple(), Timeout :: timeout()) -> read_result().
-perform_in(Space, Pattern, Timeout) ->
+% Returns:
+%   {ok, Tuple} | {error, Reason}
+-spec perform_in(Space :: ts:space(), 
+    Pattern :: tuple(), 
+    Timeout :: timeout()) -> ts:t_result(tuple()).
+perform_in(Space, Pattern, Timeout) when 
+    is_atom(Space), 
+    is_tuple(Pattern), 
+    (Timeout =:= 'infinity') orelse (is_number(Timeout) andalso Timeout >= 0) ->
     case whereis(Space) of
         undefined -> {error, {no_space_with_name, Space}};
         _Pid -> 
@@ -85,7 +101,9 @@ perform_in(Space, Pattern, Timeout) ->
                     end;
                 Error -> Error
             end
-    end.
+    end;
+perform_in(Space, Pattern, Timeout) ->
+    {error, {badarg, Space, Pattern, Timeout}}.
 
 % Start an instance of ts_manager for the tuple space
 % with given name.
@@ -95,8 +113,8 @@ start_link(SpaceName) when is_atom(SpaceName) ->
 
 % Stop the running ts_manager for the tuple space 
 % with given name.
--spec stop_link(Space :: space()) -> stopped.
-stop_link(Space) -> 
+-spec stop_link(Space :: ts:space()) -> stopped.
+stop_link(Space) when is_atom(Space) -> 
     case whereis(Space) of
         undefined -> {error, {no_space_with_name, Space}};
         _Pid -> gen_server:call(Space, stop)
@@ -164,8 +182,8 @@ code_change(_OldVsn, _State, _Extra) ->
 % Read a tuple matching given pattern.
 % Returns:
 %   {ok, Tuple} | {error, Reson}
--spec read_tuple(Space :: space(), Pattern :: tuple()) -> read_result().
-read_tuple(Space, Pattern) -> 
+-spec read_tuple(Space :: ts:space(), Pattern :: tuple()) -> ts:t_result(tuple()).
+read_tuple(Space, Pattern) when is_atom(Space), is_tuple(Pattern) -> 
     case mnesia:transaction(fun() ->
         lists:filter(fun(T) -> 
             match(Pattern, element(3,T)) 
@@ -179,9 +197,9 @@ read_tuple(Space, Pattern) ->
 % Insert the given tuple in the tuple space.
 % Returns:
 % ok | {error, Reason}
--spec write_tuple(Space :: space(), Tuple :: tuple()) -> result().
+-spec write_tuple(Space :: ts:space(), Tuple :: tuple()) -> ts:result().
 write_tuple(_, {}) -> ok;
-write_tuple(Space, Tuple) -> 
+write_tuple(Space, Tuple) when is_atom(Space), is_tuple(Tuple) -> 
     case mnesia:transaction(fun() ->
         mnesia:write({Space, tuple_size(Tuple), Tuple})
     end) of
@@ -192,9 +210,9 @@ write_tuple(Space, Tuple) ->
 % Remove the given tuple from the tuple space.
 % Returns:
 %   ok | {error, Reason}
--spec delete_tuple(Space :: space(), Tuple :: tuple()) -> result().
+-spec delete_tuple(Space :: ts:space(), Tuple :: tuple()) -> ts:result().
 delete_tuple(_, {}) -> ok;
-delete_tuple(Space, Tuple) -> 
+delete_tuple(Space, Tuple) when is_atom(Space), is_tuple(Tuple) -> 
     case mnesia:transaction(fun() ->
         mnesia:delete_object({Space, tuple_size(Tuple), Tuple})
     end) of
@@ -209,8 +227,11 @@ delete_tuple(Space, Tuple) ->
 % If timeout is set to 'infinity' or no tuple is matching this function wait indefinitly.
 % Returns:
 %   {ok, Tuple} | {error, timeout}
--spec subscribe_for_pattern(Space :: space(), Pattern :: tuple(), Timeout :: timeout()) -> read_result().
-subscribe_for_pattern(Space, Pattern, Timeout) ->
+-spec subscribe_for_pattern(Space :: ts:space(), Pattern :: tuple(), Timeout :: timeout()) -> ts:t_result(tuple()).
+subscribe_for_pattern(Space, Pattern, Timeout) when
+    is_atom(Space), 
+    is_tuple(Pattern), 
+    (Timeout =:= 'infinity') orelse (is_number(Timeout) andalso Timeout >= 0) ->
     mnesia:subscribe({table, Space, simple}),
     receive
         {mnesia_table_event, {write, {Space, key, NewTuple}, _AId}} ->

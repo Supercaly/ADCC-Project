@@ -20,10 +20,6 @@
     terminate/2
 ]).
 
--type log_level() :: info | warning | error.
-
--export_type([log_level/0]).
-
 % TODO(#5): Move those constants names in a .hrl file for shearing
 -define(LOGGER_EVENT_MANAGER, logger_event_manager).
 -define(LOGGER_EVENT_HANDLER, ?MODULE).
@@ -32,6 +28,17 @@
 -ifdef(TEST).
 -export([do_handle_event/1, format/2]).
 -endif.
+
+%%%%%%%%%%%%%%
+% Custom types
+%%%%%%%%%%%%%%
+
+-type log_level() :: info | warning | error.
+-export_type([log_level/0]).
+
+%%%%%%%%%%%%
+% Public API
+%%%%%%%%%%%%
 
 % Log a given info message to the terminal.
 -spec logi(term()) -> ok.

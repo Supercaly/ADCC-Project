@@ -54,6 +54,9 @@ perform_out_test(_Config) ->
     [{_,_,T}|_] = mnesia:dirty_read(test_space, 2),
     ?assertEqual({a,b}, T),
     ?assertMatch({error, {no_space_with_name, test_space2}}, ts_manager:perform_out(test_space2, {a,b})),
+    
+    ?assertMatch({error, {badarg,_,_}}, ts_manager:perform_out([a], {a,b})),
+    ?assertMatch({error, {badarg,_,_}}, ts_manager:perform_out(test_space, a)),
 
     ok.
 
@@ -70,6 +73,11 @@ perform_in_test(_Config) ->
     ?assert((Time >= 1000000) andalso (Time < 1005000)),
     ?assertMatch({error, {no_space_with_name, test_space2}}, ts_manager:perform_in(test_space2, {a,b}, 200)),
     
+    ?assertMatch({error, {badarg,_,_,_}}, ts_manager:perform_in([a], {a,b}, 200)),
+    ?assertMatch({error, {badarg,_,_,_}}, ts_manager:perform_in(test_space, a, 200)),
+    ?assertMatch({error, {badarg,_,_,_}}, ts_manager:perform_in(test_space, {a}, a)),
+    ?assertMatch({error, {badarg,_,_,_}}, ts_manager:perform_in(test_space, {a}, -2)),
+    
     ok.
 
 perform_rd_test(_Config) -> 
@@ -83,6 +91,11 @@ perform_rd_test(_Config) ->
     ?assertEqual({error, timeout}, Res),
     ?assert((Time >= 1000000) andalso (Time < 1005000)),
     ?assertMatch({error, {no_space_with_name, test_space2}}, ts_manager:perform_rd(test_space2, {a,b}, 200)),
+    
+    ?assertMatch({error, {badarg,_,_,_}}, ts_manager:perform_rd([a], {a,b}, 200)),
+    ?assertMatch({error, {badarg,_,_,_}}, ts_manager:perform_rd(test_space, a, 200)),
+    ?assertMatch({error, {badarg,_,_,_}}, ts_manager:perform_rd(test_space, {a,b}, a)),
+    ?assertMatch({error, {badarg,_,_,_}}, ts_manager:perform_rd(test_space, {a,b}, -2)),
     
     ok.
 
