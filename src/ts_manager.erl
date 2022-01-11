@@ -234,12 +234,11 @@ subscribe_for_pattern(Space, Pattern, Timeout) when
     (Timeout =:= 'infinity') orelse (is_number(Timeout) andalso Timeout >= 0) ->
     mnesia:subscribe({table, Space, simple}),
     receive
-        {mnesia_table_event, {write, {Space, key, NewTuple}, _AId}} ->
+        {mnesia_table_event, {write, {Space, Size, NewTuple}, _AId}} when Size =:= tuple_size(Pattern) ->
+            mnesia:unsubscribe({table, Space, simple}),
             PtrnMatches = match(Pattern, NewTuple),
             if
-                PtrnMatches ->
-                    mnesia:unsubscribe({table, Space, simple}),
-                    {ok, NewTuple};
+                PtrnMatches -> {ok, NewTuple};
                 true -> subscribe_for_pattern(Space, Pattern, Timeout)
             end
     after
