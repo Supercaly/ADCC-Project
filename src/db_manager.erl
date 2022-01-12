@@ -245,7 +245,6 @@ wait_for(stop) ->
 -spec init_cluster() -> ts:result().
 init_cluster() ->
     try
-        % TODO(#4): Figure out if deleting the schema at every startup is a correct thing to do
         ok = ensure_started(),
         ok = sync_cluster(),
         ok = create_disc_schema(),
