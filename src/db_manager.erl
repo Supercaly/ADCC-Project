@@ -261,7 +261,7 @@ init_cluster() ->
         error:{badmatch, Error} -> Error
     end.
 
-% Creates a mnesia scheme as disc_copies.
+% Creates a mnesia schema as disc_copies.
 % Returns:
 %   ok | {error, Reason}
 -spec create_disc_schema() -> ts:result().
@@ -281,14 +281,27 @@ create_disc_schema() ->
 ensure_nodes_table() ->
     Exist = lists:member(nodes, mnesia:system_info(tables)),
     if 
-        not Exist -> 
+        Exist -> 
+            % Check if the nodes table is a disc_copy or remote;
+            % if it's remote or ram_copies (if it is it's a bug) copy
+            % it locally
+            case mnesia:table_info(nodes, storage_type) of
+                disc_copies -> ok;
+                unknown -> 
+                    case mnesia:add_table_copy(nodes, node(), disc_copies) of
+                        {atomic, ok} -> ok;
+                        {aborted, {already_exists, nodes, _}} -> ok;
+                        {aborted, Reason} -> {error, Reason}
+                    end
+            end;
+        true -> 
+            % Create a new nodes table
             case mnesia:create_table(nodes, 
-                [{type, bag}, {disc_copies, nodes()++[node()]}]) of
+                [{type, bag}, {disc_copies, [node()]}]) of
                 {atomic, ok} -> ok;
                 {aborted, {already_exists, nodes}} -> ok;
                 {aborted, Reason} -> {error, Reason}
-            end;
-        true -> ok
+            end
     end.
 
 % Returns true if given space exists in the db.
@@ -378,10 +391,7 @@ nodes_in_space(Space) when is_atom(Space) ->
         mnesia:read(nodes, Space)
     end),
     case Res of
-        {atomic, Nodes} -> 
-            lists:map(fun(E) -> 
-                element(3, E)
-            end, Nodes);
+        {atomic, Nodes} -> lists:map(fun({_,_,E}) -> E end, Nodes);
         {aborted, _} -> []
     end.
 
