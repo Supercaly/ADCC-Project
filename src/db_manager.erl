@@ -127,8 +127,6 @@ init(_Args) ->
             logi("db_manager: initialized"),
             {ok, []};
         {error, Reason} -> 
-            % TODO(#2): Fix error initializing not_active node
-            % starting a node that has some other node where the app is not started causes this
             loge(["db_manager: error initializing", Reason]),
             {stop, Reason}
     end.
