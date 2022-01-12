@@ -20,7 +20,6 @@
     terminate/2
 ]).
 
-% TODO(#5): Move those constants names in a .hrl file for shearing
 -define(LOGGER_EVENT_MANAGER, logger_event_manager).
 -define(LOGGER_EVENT_HANDLER, ?MODULE).
 
