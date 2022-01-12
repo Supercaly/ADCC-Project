@@ -246,17 +246,32 @@ wait_for(stop) ->
 init_cluster() ->
     try
         % TODO(#4): Figure out if deleting the schema at every startup is a correct thing to do
-        ok = ensure_stopped(),
-        ok = mnesia:delete_schema([node()]),
         ok = ensure_started(),
-        {ok, _} = mnesia:change_config(extra_db_nodes, nodes()),
+        ok = sync_cluster(),
         ok = create_disc_schema(),
         ok = ensure_nodes_table(),
         ok = mnesia:wait_for_tables([schema, nodes], 2000),
         ok
     catch
         error:{badmatch, {timeout, Tab}} -> {error, {cannot_find_tables, Tab}};
-        error:{badmatch, Error} -> Error
+        error:{badmatch, Error} -> Error;
+        _:Error -> {error, Error}
+    end.
+
+% Set all nodes as extra_db_nodes end if the schema merge fail
+% clear the schema and sync with the cluster.
+% Returns:
+%   ok
+sync_cluster() ->
+    case mnesia:change_config(extra_db_nodes, nodes()) of
+        {ok, _} -> ok;
+        {error, {merge_schema_failed, _}} ->
+            logger:loge("ciaooo") ,
+            ok = ensure_stopped(),
+            ok = mnesia:delete_schema([node()]),
+            ok = ensure_started(),
+            {ok, _} = mnesia:change_config(extra_db_nodes, nodes()),
+            ok
     end.
 
 % Creates a mnesia schema as disc_copies.

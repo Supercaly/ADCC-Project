@@ -59,6 +59,7 @@ end_per_group(_, _) -> ok.
 %%%%%%%%%%%%%%%%%%%%%%%
 
 create_new_space_test(_Config) ->
+    test_helper:clear_db_for_test(),
     supervisor:start_link({local, ts_supervisor}, ts_supervisor, []),
     gen_server:start({local, db_manager}, db_manager, [], []),
 
@@ -86,6 +87,7 @@ remove_node_from_space_test(_Config) ->
     ok.
 
 list_nodes_in_space_test(_Config) -> 
+    test_helper:clear_db_for_test(),
     gen_server:start({local, db_manager}, db_manager, [], []),
     mnesia:create_table(test_space, [{type, bag}]),
     mnesia:dirty_write({nodes, test_space, node()}),
