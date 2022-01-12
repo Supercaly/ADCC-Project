@@ -261,6 +261,7 @@ init_cluster() ->
         ok = create_disc_schema(),
         ok = ensure_nodes_table(),
         ok = mnesia:wait_for_tables([schema, nodes], 2000),
+        ok = restart_space_managers(),
         ok
     catch
         error:{badmatch, {timeout, Tab}} -> {error, {cannot_find_tables, Tab}};
@@ -325,6 +326,23 @@ ensure_nodes_table() ->
                 {aborted, Reason} -> {error, Reason}
             end
     end.
+
+% Restart ts_managager for all spaces where the local node
+% is in.
+% This function is usefull when the node is restarted and all
+% the old spaces are still present, their ts_managers will be
+% restarted
+% Returns:
+%   ok | {error, Reason}
+% Can throw errors
+restart_space_managers() ->
+    {atomic, SpacesRecords} = mnesia:transaction(fun() ->
+        mnesia:match_object({nodes, '_', node()})
+    end),
+    lists:foreach(fun({_,Space,_Node}) ->
+        ok = ts_supervisor:add_space_manager(Space)
+    end, SpacesRecords),
+    ok.
 
 % Returns true if given space exists in the db.
 % Returns:
