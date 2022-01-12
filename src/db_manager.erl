@@ -185,7 +185,6 @@ handle_info(_Info, _State) ->
 
 % terminate/2 callback from gen_server.
 terminate(_Reason, _State) ->
-    % TODO(#3): Determine what happens when the db is terminated
     ensure_stopped(),
     logi({"db_manager: terminated", _Reason}),
     ok.
@@ -265,7 +264,6 @@ sync_cluster() ->
     case mnesia:change_config(extra_db_nodes, nodes()) of
         {ok, _} -> ok;
         {error, {merge_schema_failed, _}} ->
-            logger:loge("ciaooo") ,
             ok = ensure_stopped(),
             ok = mnesia:delete_schema([node()]),
             ok = ensure_started(),
