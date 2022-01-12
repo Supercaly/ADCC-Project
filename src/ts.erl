@@ -25,6 +25,8 @@
 %%%%%%%%%%%%
 
 % Start the ts application on the node.
+% Returns:
+%   ok | {error, Reason}
 -spec start() -> result().
 start() -> 
     case application:start(ts_app) of
@@ -34,6 +36,8 @@ start() ->
     end.
 
 % Stop the ts application the node.
+% Returns:
+%   stopped | {error, Reason}
 -spec stop() -> 'stopped' | {'error', term()}.
 stop() -> 
     case application:stop(ts_app) of
@@ -43,12 +47,16 @@ stop() ->
     end.
 
 % Create a new tuple space with given name.
--spec new(Name :: atom()) -> t_result(atom()).
+% Returns:
+%   ok | {error, Reason}
+-spec new(Name :: atom()) -> result().
 new(Name) -> 
     db_manager:create_new_space(Name).
 
 % Return a tuple matching given pattern and removes 
 % it from the tuple space.
+% Returns:
+%   {ok, Tuple} | {error, Reason}
 -spec in(Ts :: space(), Pattern :: tuple()) -> t_result(tuple()).
 in(Ts, Pattern) -> 
     ts_manager:perform_in(Ts, Pattern, 'infinity').
@@ -56,6 +64,8 @@ in(Ts, Pattern) ->
 % Return a tuple matching given pattern and removes 
 % it from the tuple space. 
 % Return error if there's no matching tuple after timeout.
+% Returns:
+%   {ok, Tuple} | {error, Reason}
 -spec in(Ts :: space(), 
     Pattern :: tuple(), 
     Timeout :: timeout()) -> t_result(tuple()).
@@ -63,12 +73,16 @@ in(Ts, Pattern, Timeout)->
     ts_manager:perform_in(Ts, Pattern, Timeout).
 
 % Return a tuple matching given pattern. 
+% Returns:
+%   {ok, Tuple} | {error, Reason}
 -spec rd(Ts :: space(), Pattern :: tuple()) -> t_result(tuple()).
 rd(Ts, Pattern) -> 
     ts_manager:perform_rd(Ts, Pattern, 'infinity').
 
 % Return a tuple matching given pattern. 
 % Return error if there's no matching tuple after timeout.
+% Returns:
+%   {ok, Tuple} | {error, Reason}
 -spec rd(Ts :: space(), 
     Pattern :: tuple(), 
     Timeout :: timeout()) -> t_result(tuple()).
@@ -76,6 +90,8 @@ rd(Ts, Pattern, Timeout) ->
     ts_manager:perform_rd(Ts, Pattern, Timeout).
 
 % Add given tuple to the tuple space.
+% Returns:
+%   ok | {error, Reason}
 -spec out(Ts :: space(), Tuple :: tuple()) -> result().
 out(Ts, Tuple) -> 
     ts_manager:perform_out(Ts, Tuple).
@@ -84,14 +100,22 @@ out(Ts, Tuple) ->
 % TODO(#10): nodes can be called for non existing Space
 
 % Add given node to the tuple space.
+% Returns:
+%   {ok, Tuple} | {error, Reason}
+-spec addNode(Ts :: space(), Node :: node()) -> result().
 addNode(Ts, Node) -> 
     db_manager:add_node_to_space(Node, Ts).
 
 % Remove given node from the tuple space.
+% Returns:
+%   {ok, Tuple} | {error, Reason}
+-spec removeNode(Ts :: space(), Node :: node()) -> result().
 removeNode(Ts, Node) -> 
     db_manager:remove_node_from_space(Node, Ts).
 
 % Return a list of all nodes connected to the tuple space.
+% Returns:
+%   {ok, Nodes} | {error, Reason}
 -spec nodes(Ts :: space()) -> t_result([node()]).
 nodes(Ts) -> 
     db_manager:list_nodes_in_space(Ts).
