@@ -15,25 +15,24 @@
     logw_test/1,
     loge_test/1,
     log_test/1,
-    do_handle_event_test/1,
-    format_test/1
+    do_handle_log_test/1,
+    level_string_test/1
 ]).
 
 all() -> [{group, publics}, {group, internals}].
 
 groups() -> [
     {publics, [shuffle], [logi_test, logw_test, loge_test, log_test]},
-    {internals, [shuffle], [do_handle_event_test, format_test]}
+    {internals, [shuffle], [do_handle_log_test, level_string_test]}
 ].
 
 init_per_group(publics, Config) ->
-    gen_event:start({local, logger_event_manager}),
-    gen_event:add_handler(logger_event_manager, logger, []),
+    gen_server:start({local, logger}, logger, [], []),
     Config;
 init_per_group(_, Config) -> Config.
 
 end_per_group(public, _) ->
-    gen_event:stop(logger_event_manager),
+    gen_server:stop(logger),
     ok;
 end_per_group(_, _) -> ok.
 
@@ -43,44 +42,47 @@ end_per_group(_, _) -> ok.
 
 logi_test(_Config) -> 
     logger:logi("info message"),
-    logger:logi(["list", 1, 2, {a, b}]),
-    logger:logi(<<10, 20>>),
-    logger:logi(self()),
+    logger:logi("info message ", ["list", 1, 2, {a, b}]),
+    logger:logi("info message ", <<10, 20>>),
+    logger:logi("info message ", self()),
     ok.
 logw_test(_Config) -> 
     logger:logw("warning message"),
-    logger:logw(["list", 1, 2, {a, b}]),
-    logger:logw(<<10, 20>>),
-    logger:logw(self()),
+    logger:logw("warning message ", ["list", 1, 2, {a, b}]),
+    logger:logw("warning message ", <<10, 20>>),
+    logger:logw("warning message ", self()),
     ok.
 loge_test(_Config) ->
     logger:loge("error message"),
-    logger:loge(["list", 1, 2, {a, b}]),
-    logger:loge(<<10, 20>>),
-    logger:loge(self()),
+    logger:loge("error message ", ["list", 1, 2, {a, b}]),
+    logger:loge("error message ", <<10, 20>>),
+    logger:loge("error message ", self()),
     ok.
 log_test(_Config) ->
-    logger:log(unknown, "log message"),
-    logger:log(unknown, ["list", 1, 2, {a, b}]),
-    logger:log(unknown, <<10, 20>>),
-    logger:log(unknown, self()),
+    logger:log(unknown, "log message", '_'),
+    logger:log(unknown, "log message ", ["list", 1, 2, {a, b}]),
+    logger:log(unknown, "log message ", <<10, 20>>),
+    logger:log(unknown, "log message ", self()),
     ok.
 
 %%%%%%%%%%%%%%%%%%%%
 % Internal functions
 %%%%%%%%%%%%%%%%%%%%
 
-do_handle_event_test(_Config) -> 
+do_handle_log_test(_Config) -> 
     % log simple messages succed
-    logger:do_handle_event({info, "Test msg"}),
-    logger:do_handle_event({warning, "Test msg"}),
-    logger:do_handle_event({error, "Test msg"}),
-    logger:do_handle_event({unknown, "Test msg"}),
+    logger:do_handle_log({info, "Test msg", '_'}),
+    logger:do_handle_log({warning, "Test msg", '_'}),
+    logger:do_handle_log({error, "Test msg", '_'}),
+    logger:do_handle_log({unknown, "Test msg", '_'}),
     % wrong parameter fails
-    ?assertError(function_clause, logger:do_handle_event({})),
-    ?assertError(function_clause, logger:do_handle_event([1,2,3])),
+    ?assertError(function_clause, logger:do_handle_log({})),
+    ?assertError(function_clause, logger:do_handle_log([1,2,3])),
     ok.
 
-format_test(_Config) ->
-    ["I", 58, 32, "\"test msg\"", "\n"] = logger:format(info, "test msg"),
+level_string_test(_Config) ->
+    ?assertEqual("I", logger:level_string(info)),
+    ?assertEqual("W", logger:level_string(warning)),
+    ?assertEqual("E", logger:level_string(error)),
+    ?assertEqual("?", logger:level_string(abc)),
     ok.

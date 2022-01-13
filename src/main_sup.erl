@@ -35,7 +35,7 @@ init(_Args) ->
             restart => permanent,
             shutdown => 2000,
             type => worker,
-            modules => dynamic
+            modules => [logger]
         },
         #{
             id => ts_supervisor,

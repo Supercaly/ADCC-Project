@@ -42,8 +42,6 @@
 ]).
 -endif.
 
--import(logger, [logi/1,logw/1,loge/1]).
-
 %%%%%%%%%%%%%%
 % Custom types
 %%%%%%%%%%%%%%
@@ -136,10 +134,10 @@ init(_Args) ->
     % the schema is manipulated with messages.
     case init_cluster() of
         ok -> 
-            logi("db_manager: initialized"),
+            logger:logi("db_manager: initialized"),
             {ok, []};
         {error, Reason} -> 
-            loge(["db_manager: error initializing", Reason]),
+            logger:loge("db_manager: error initializing", Reason),
             {stop, Reason}
     end.
 
@@ -187,23 +185,23 @@ handle_call(_Request, _From, _State) ->
 
 % handle_cast/2 callback from gen_server.
 handle_cast(_Msg, _State) ->
-    logi({"db_manager: cast message received", _Msg}),
+    logger:logi("db_manager: cast message received", _Msg),
     {noreply, _State}.
 
 % handle_info/2 callback from gen_server.
 handle_info(_Info, _State) ->
-    logi({"db_manager: info message received", _Info}),
+    logger:logi("db_manager: info message received", _Info),
     {noreply, _State}.
 
 % terminate/2 callback from gen_server.
 terminate(_Reason, _State) ->
     ensure_stopped(),
-    logi({"db_manager: terminated", _Reason}),
+    logger:logi("db_manager: terminated", _Reason),
     ok.
 
 % code_change/3 callback from gen_server.
 code_change(_OldVsn, _State, _Extra) ->
-    logi({"db_manager: code changed", _OldVsn}),
+    logger:logi("db_manager: code changed", _OldVsn),
     {ok, _State}.
 
 %%%%%%%%%%%%%%%%%%%%

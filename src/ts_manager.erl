@@ -126,7 +126,8 @@ stop_link(Space) when is_atom(Space) ->
 
 % init/1 callback from gen_server.
 init(SpaceName) ->
-    logger:logi(["ts_manager: initialized", SpaceName]),
+    process_flag(trap_exit, true),
+    logger:logi("ts_manager: initialized", SpaceName),
     {ok, #tsstate{space = SpaceName}}.
 
 % handle_call/3 callback from gen_server.
@@ -158,17 +159,17 @@ handle_call(_Request, _From, _State) ->
 
 % handle_cast/2 callback from gen_server.
 handle_cast(_Msg, _State) ->
-    logger:logi(["ts_manager: cast message received", _Msg]),
+    logger:logi("ts_manager: cast message received", _Msg),
     {noreply, _State}.
 
 % handle_info/2 callback from gen_server.
 handle_info(_Info, _State) ->
-    logger:logi(["ts_manager: info message received", _Info]),
+    logger:logi("ts_manager: info message received", _Info),
     {noreply, _State}.
 
 % terminate/2 callback from gen_server.
 terminate(_Reason, State) ->
-    logger:logi(["ts_manager: terminated", State]),
+    logger:logi("ts_manager: terminated", State),
     ok.
 
 % code_change/3 callback from gen_server.
