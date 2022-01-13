@@ -96,7 +96,6 @@ rd(Ts, Pattern, Timeout) ->
 out(Ts, Tuple) -> 
     ts_manager:perform_out(Ts, Tuple).
 
-% TODO(#7): addNode/removeNode can be called by node not inside the Space, this mechanic is correct?
 % TODO(#10): nodes can be called for non existing Space
 
 % Add given node to the tuple space.
