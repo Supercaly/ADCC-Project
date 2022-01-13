@@ -22,7 +22,6 @@ start_link() ->
 
 % init/1 callback from supervisor.
 init(_Args) ->
-    % TODO(#6): Tune the ration between intensity and period
     SupFlags = #{
         strategy => one_for_one,
         intensity => 1,
