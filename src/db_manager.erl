@@ -74,7 +74,12 @@ add_node_to_space(Node, Space) when is_atom(Node), is_atom(Space) ->
         undefined -> {error, db_manager_not_running};
         _Pid -> 
             try 
-                gen_server:call({?MODULE, Node}, {enter_space, Space})
+                NodeInSpace = is_node_in_space(node(), Space),
+                if
+                    NodeInSpace ->
+                        gen_server:call({?MODULE, Node}, {enter_space, Space});
+                    true -> {error, {node_not_in_space, node()}}
+                end
             catch
                 exit:{{nodedown,N},_} -> {error, {no_node, N}};
                 _:Error -> {error, Error}
@@ -92,7 +97,12 @@ remove_node_from_space(Node, Space) when is_atom(Node), is_atom(Space) ->
         undefined -> {error, db_manager_not_running};
         _Pid -> 
             try
-                gen_server:call({?MODULE, Node}, {exit_space, Space})
+                NodeInSpace = is_node_in_space(node(), Space),
+                if
+                    NodeInSpace ->
+                        gen_server:call({?MODULE, Node}, {exit_space, Space});
+                    true -> {error, {node_not_in_space, node()}}
+                end
             catch
                 exit:{{nodedown,N},_} -> {error, {no_node, N}};
                 _:Error -> {error, Error}

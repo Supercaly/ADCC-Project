@@ -49,7 +49,7 @@ init(_Args) ->
         #{
             id => ts_manager,
             start => {ts_manager, start_link, []},
-            shutdown => brutal_kill
+            shutdown => 2000
         }
     ],
 
