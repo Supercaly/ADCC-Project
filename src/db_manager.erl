@@ -78,7 +78,7 @@ add_node_to_space(Node, Space) when is_atom(Node), is_atom(Space) ->
                 if
                     NodeInSpace ->
                         gen_server:call({?MODULE, Node}, {enter_space, Space});
-                    true -> {error, {node_not_in_space, node()}}
+                    true -> {error, {node_not_in_space, node(), Space}}
                 end
             catch
                 exit:{{nodedown,N},_} -> {error, {no_node, N}};
@@ -101,7 +101,7 @@ remove_node_from_space(Node, Space) when is_atom(Node), is_atom(Space) ->
                 if
                     NodeInSpace ->
                         gen_server:call({?MODULE, Node}, {exit_space, Space});
-                    true -> {error, {node_not_in_space, node()}}
+                    true -> {error, {node_not_in_space, node(), Space}}
                 end
             catch
                 exit:{{nodedown,N},_} -> {error, {no_node, N}};
@@ -118,7 +118,12 @@ remove_node_from_space(Node, Space) ->
 list_nodes_in_space(Space) when is_atom(Space) -> 
     case whereis(?MODULE) of
         undefined -> {error, db_manager_not_running};
-        _Pid -> gen_server:call(?MODULE, {nodes_in_space, Space})
+        _Pid -> 
+            IsNodeInSpace = is_node_in_space(node(), Space),
+            if
+                IsNodeInSpace -> gen_server:call(?MODULE, {nodes_in_space, Space});
+                true -> {error, {node_not_in_space, node(), Space}}
+            end
     end;
 list_nodes_in_space(Space) -> 
     {error, {badarg, Space}}.
@@ -400,7 +405,7 @@ addme_to_space(Space) when is_atom(Space) ->
                     catch
                         error:{badmatch,{aborted, Error}} -> {error, Error}
                     end;
-                true -> {error, {node_already_in_space, Space}}
+                true -> {error, {node_already_in_space, node(), Space}}
             end;
         true -> {error, {space_not_exists, Space}}
     end.
@@ -425,20 +430,19 @@ removeme_from_space(Space) when is_atom(Space) ->
                     catch
                         error:{badmatch, {aborted, Error}} -> {error, Error}
                     end;
-                true -> {error, {node_not_in_space, Space}}
+                true -> {error, {node_not_in_space, node(), Space}}
             end;
         true -> {error, {space_not_exists, Space}}
     end.
 
 % List all nodes connected to the given tuple space.
 % Returns:
-%   [Node]
+%   Nodes
 -spec nodes_in_space(Space :: ts:space()) -> [node()].
 nodes_in_space(Space) when is_atom(Space) ->
-    Res = mnesia:transaction(fun() ->
+    case mnesia:transaction(fun() ->
         mnesia:read(nodes, Space)
-    end),
-    case Res of
+    end) of
         {atomic, Nodes} -> lists:map(fun({_,_,E}) -> E end, Nodes);
         {aborted, _} -> []
     end.
