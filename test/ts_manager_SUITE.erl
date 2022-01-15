@@ -12,12 +12,13 @@
 
 -export([
     delete_tuple_test/1,
+    match_test/1,
     perform_in_test/1,
     perform_rd_test/1,
     perform_out_test/1,
     read_tuple_test/1,
-    write_tuple_test/1,
-    match_test/1
+    subscribe_for_pattern_test/1,
+    write_tuple_test/1
 ]).
 
 % Dummy record used in match_test.
@@ -27,7 +28,7 @@ all() -> [{group, publics}, {group, internals}].
 
 groups() -> [
     {publics, [shuffle], [perform_out_test, perform_rd_test, perform_in_test]},
-    {internals, [shuffle], [match_test, 
+    {internals, [shuffle], [match_test, subscribe_for_pattern_test,
         read_tuple_test, write_tuple_test, delete_tuple_test]}
 ].
 
@@ -149,6 +150,23 @@ delete_tuple_test(_Config) ->
     ?assertMatch([], mnesia:dirty_read(test_space, 2)),
     ?assertMatch(ok, ts_manager:delete_tuple(test_space, {})),
     ?assertMatch({error, _}, ts_manager:delete_tuple(test_space2, {a})),
+
+    ok.
+
+subscribe_for_pattern_test(_Config) ->
+    test_helper:clear_db_for_test(),
+    mnesia:start(),
+    mnesia:create_table(test_space,[{type,bag}]),
+    Node = test_helper:start_node(node),
+    test_helper:call_node(Node,mnesia,delete_schema,[[Node]]),
+    test_helper:call_node(Node,mnesia,start,[]),
+    test_helper:call_node(Node,mnesia,change_config,[extra_db_nodes,[node()]]),
+    test_helper:call_node(Node,mnesia,add_table_copy,[test_space, Node, ram_copies]),
+    
+    io:format("~p",[test_helper:call_node(Node,mnesia,info,[])]),
+    ?assertMatch({error,timeout},ts_manager:subscribe_for_pattern(test_space,{a,b,c},1000)),
+    test_helper:call_node_after(Node,mnesia,dirty_write,[{test_space,3,{a,b,c}}],1000),
+    ?assertMatch({ok,{a,b,c}},ts_manager:subscribe_for_pattern(test_space,{a,b,c},2000)),
 
     ok.
 
