@@ -273,7 +273,7 @@ init_cluster() ->
         ok = sync_cluster(),
         ok = create_disc_schema(),
         ok = ensure_nodes_table(),
-        ok = mnesia:wait_for_tables([schema, nodes], 2000),
+        ok = wait_for_tables(),
         ok = restart_space_managers(),
         ok
     catch
@@ -323,7 +323,7 @@ ensure_nodes_table() ->
             % it locally
             case mnesia:table_info(nodes, storage_type) of
                 disc_copies -> ok;
-                unknown -> 
+                _ -> 
                     case mnesia:add_table_copy(nodes, node(), disc_copies) of
                         {atomic, ok} -> ok;
                         {aborted, {already_exists, nodes, _}} -> ok;
@@ -338,6 +338,23 @@ ensure_nodes_table() ->
                 {aborted, {already_exists, nodes}} -> ok;
                 {aborted, Reason} -> {error, Reason}
             end
+    end.
+
+% Wait for all the tables locally stored in the node (nodes+spaces) to be
+% fully loaded and force the load if it fails.
+% Returns:
+%   ok
+wait_for_tables() ->
+    Tables = lists:filter(fun(Table) ->
+        mnesia:table_info(Table, storage_type) =:= disc_copies
+    end, mnesia:system_info(tables)),
+    case mnesia:wait_for_tables(Tables, 2000) of
+        ok -> ok;
+        {timeout, MissingTables} -> 
+            lists:foreach(fun(MissingTab) ->
+                mnesia:force_load_table(MissingTab)
+            end, MissingTables),
+            ok
     end.
 
 % Restart ts_managager for all spaces where the local node
