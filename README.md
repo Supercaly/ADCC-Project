@@ -8,7 +8,7 @@ Realizzato da:</br>
 Luca Cinti</b>
 </p>
 
-### Quick start
+## Quick start
 
 Prima di clonare questa repository è importante specificare che l'intero applicativo è stato realizzato utilizzando la versione di **Erlang/OTP 19** pertanto non è garantito il suo funzionamento con versioni differenti.
 
@@ -41,7 +41,7 @@ ed infine avviare l'applicazione su ogni nodo:
 ```
 **Nota:** Prima di avviare l'applicazione sui nodi è consigliato connetterli fra loro utilizzando il comando `net_adm:ping(node@host).`. In caso contrario il nodo locale non sarà in grado di vedere i nodi aggiunti in seguito; per risolvere questo basterà riavviare l'applicazione sul singolo nodo.
 
-### Specifiche del progetto e obiettivo
+## Specifiche del progetto e obiettivo
 
 Prima di procedere alla presentazione dell’elaborato, è funzionale e necessario definire il concetto di *spazio di tuple*, e presentare brevemente cos’è *Erlang/OTP*.
 Definiamo spazio di tuple un’implementazione del paradigma della memoria associativa per i sistemi distribuiti. Lo si può vedere come un insieme di array multi-dato, accessibile in maniera concorrente tramite pattern matching; nell’architettura distribuita i nodi distributori creano le tuple nello spazio, mentre i consumatori recuperano i dati che hanno la struttura della tupla che rispetta un pattern.
@@ -59,7 +59,7 @@ Fatta questa panoramica possiamo passare a quello che è il focus dell’elabora
 Come si può ben vedere le funzioni *in* e *rd* hanno tra i parametri di input un **Pattern**, che è formato da una tupla composta da valori generici e/o dall’atomo *any*.
 Any è la wildcard che rappresenta il matching con qualsiasi valore: prendiamo come esempio il pattern P = {any, 3, "Alice"} e le tuple A = {a, 3, "Alice"} e B = {b, 3, "Bob"}; vediamo che P fa matching con A, ma non con B.
 
-### Dettagli implementativi
+## Dettagli implementativi
 
 Il TS è stato implementato tramite un'applicazione Erlang (versione OTP19) chiamata **ts**, un componente che implementa una funzionalità specifica e può essere avviato e fermato come un blocco unico.
 Al suo avvio viene lanciato il processo supervisor principale, chiamato *main_sup*, che a sua volta avvia i seguenti processi: logger, db_manager, ts_supervisor. Vediamoli più nel dettaglio:
@@ -88,7 +88,7 @@ Anche in questo caso è stato implementato un gen_server, e vengono esposte all'
 Queste due ultime funzioni eseguono a loro volta la funzione interna *subscribe_for_pattern(Space, Pattern, Timeout)* che mette in attesa il chiamante, usando il construtto receive, di un messaggio da parte di mnesia in cui si indica l'inserimento di una nuova tupla nel TS. Se la nuova tupla rispetta il pattern, il chiamante viene sbloccato, altrimenti rimane in attesa ricorsivamente fino allo scadere del timeout.
 Come da specifiche, la differenza tra le due funzioni sta nel fatto che, contrariamente alla *perform_rd*, una volta effettuata la lettura *perform_in* cancella la tupla dal TS.
 
-### Scelte progettuali
+## Scelte progettuali
 
 Di seguito parleremo delle decisioni implementative effettuate da noi nella fase di progettazione e sviluppo, di questo applicativo.
 Abbiamo scelto di realizzare un’applicazione Erlang per racchiudere nel modo più pulito e conciso, tutti i moduli necessari al suo funzionamento; questo ha reso possibile ad ogni nodo l’avvio dell'intero sistema attraverso la singola chiamata di `ts:start()`, e conseguentemente l’arresto chiamando la funzione `ts:stop()`.
