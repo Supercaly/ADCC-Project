@@ -132,7 +132,3 @@ L'esecuzione dello script impiega circa 15 minuti e al termine stampa a video i 
 
 Come possiamo ben vedere le operazioni di lettura e scrittura impiegano un tempo trascurabile.
 Anche il tempo di recover dei nodi, sotto la soglia del secondo, non è preoccupante, sopratutto se si considera che la stessa applicazione implementata in un linguaggio di programmazione "tradizionale" avrebbe richiesto l'intervento di un tecnico e additittura causato il crash dell'intero sistema.
-
-## Conclusioni
-
-vediamo dopo le metriche 😉
