@@ -90,12 +90,14 @@ perform_in(Space, Pattern, Timeout) when
     case whereis(Space) of
         undefined -> {error, {no_space_with_name, Space}};
         _Pid -> 
-            case case gen_server:call(Space, {read_tuple, Pattern}) of
+            ReadResult = case gen_server:call(Space, {read_tuple, Pattern}) of
                 {error, no_tuples} -> subscribe_for_pattern(Space, Pattern, Timeout);
                 Result -> Result
-            end of
+            end,
+            case ReadResult of
                 {ok, Tuple} -> 
                     case gen_server:call(Space, {delete_tuple, Tuple}) of
+                        {error, no_tuples} -> perform_in(Space, Tuple, Timeout);
                         ok -> {ok, Tuple};
                         Error -> Error
                     end;
@@ -215,9 +217,17 @@ write_tuple(Space, Tuple) when is_atom(Space), is_tuple(Tuple) ->
 delete_tuple(_, {}) -> ok;
 delete_tuple(Space, Tuple) when is_atom(Space), is_tuple(Tuple) -> 
     case mnesia:transaction(fun() ->
-        mnesia:delete_object({Space, tuple_size(Tuple), Tuple})
+        % read the tuple in the db
+        ReadResult = lists:filter(fun(T) -> match(Tuple, element(3,T)) end, mnesia:read({Space, tuple_size(Tuple)})),
+        % if the tuple is present remove it otherwise abort the transaction and keep waiting,
+        % someone else has deleted it before
+        case ReadResult of
+            [] -> mnesia:abort({no_tuples});
+            [_] -> mnesia:delete_object({Space, tuple_size(Tuple), Tuple})
+        end        
     end) of
         {atomic, _} -> ok;
+        {aborted, {no_tuples}} -> {error, no_tuples};
         {aborted, Reason} -> {error, Reason}
     end.
 
