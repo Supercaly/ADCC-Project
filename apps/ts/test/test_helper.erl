@@ -19,7 +19,7 @@ clear_db_for_test() ->
 
 start_node(NodeName) ->
     {ok, HostName} = inet:gethostname(),
-    {ok, Node} = slave:start(HostName, NodeName," -pa ../ebin/ "),
+    {ok, Node} = slave:start(HostName, NodeName," -pa `rebar3 path` "),
     net_adm:ping(Node),
     Node.
 
