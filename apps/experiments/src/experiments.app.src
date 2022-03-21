@@ -1,0 +1,8 @@
+{application,experiments,
+    [{description, "AAA using OTP"},
+    {vsn, "0.0.1"},
+    {modules, [
+        nodelib
+    ]},
+    {registered, []},
+    {applications, [kernel, stdlib, ts_app]}]}.
