@@ -22,7 +22,7 @@ populate_pwd(N) ->
         Hash = create_hash(Pwd),
         ts:out(pwd_space, {Pwd, Hash}),
         Hash
-    end, lists:seq(0,N)).
+    end, lists:seq(0,N-1)).
 
 master_task(Hashes) ->      
     % sends hash requests to workers
