@@ -57,9 +57,9 @@ end_per_group(_, _) -> ok.
 %%%%%%%%%%%%%%%%%%%%%%%
 
 create_new_space_test(_Config) ->
-    test_helper:clear_db_for_test(),
-    gen_server:start({local, db_manager}, db_manager, [], []),
-    supervisor:start_link({local, ts_supervisor}, ts_supervisor, []),
+    ok = test_helper:clear_db_for_test(),
+    {ok,_} = gen_server:start({local, db_manager}, db_manager, [], []),
+    {ok,_} = supervisor:start_link({local, ts_supervisor}, ts_supervisor, []),
     
     ?assertNot(lists:member(test_space, mnesia:system_info(tables))),
     ?assertEqual(undefined, whereis(test_space)),
@@ -74,18 +74,18 @@ create_new_space_test(_Config) ->
     
     ok.
 
-add_node_to_space_test(Config) -> 
-    test_helper:clear_db_for_test(),
-    gen_server:start({local, db_manager}, db_manager, [], []),
-    supervisor:start_link({local, ts_supervisor}, ts_supervisor, []),
+add_node_to_space_test(_Config) -> 
+    ok = test_helper:clear_db_for_test(),
+    {ok,_} = gen_server:start({local, db_manager}, db_manager, [], []),
+    {ok,_} = supervisor:start_link({local, ts_supervisor}, ts_supervisor, []),
     Node = test_helper:start_node(node),
-    test_helper:call_node(Node,mnesia,delete_schema,[[Node]]),
-    test_helper:call_node(Node,ts,start,[]),
-    test_helper:call_node(Node,ts,new,[test_space]),
+    ok = test_helper:call_node(Node,mnesia,delete_schema,[[Node]]),
+    ok = test_helper:call_node(Node,ts,start,[]),
+    ok = test_helper:call_node(Node,ts,new,[test_space]),
     
     ?assertNot(db_manager:is_node_in_space(node(), test_space)),
     ?assertEqual(unknown, mnesia:table_info(test_space, storage_type)),
-    test_helper:call_node(Node,db_manager,add_node_to_space,[node(),test_space]),
+    ok = test_helper:call_node(Node,db_manager,add_node_to_space,[node(),test_space]),
     ?assert(db_manager:is_node_in_space(node(), test_space)),
     ?assertEqual(disc_copies, mnesia:table_info(test_space, storage_type)),
 
@@ -100,18 +100,18 @@ add_node_to_space_test(Config) ->
     ok.
 
 remove_node_from_space_test(_Config) -> 
-    test_helper:clear_db_for_test(),
-    gen_server:start({local, db_manager}, db_manager, [], []),
-    supervisor:start_link({local, ts_supervisor}, ts_supervisor, []),
+    ok = test_helper:clear_db_for_test(),
+    {ok,_} = gen_server:start({local, db_manager}, db_manager, [], []),
+    {ok,_} = supervisor:start_link({local, ts_supervisor}, ts_supervisor, []),
     Node = test_helper:start_node(node),
-    test_helper:call_node(Node,mnesia,delete_schema,[[Node]]),
-    test_helper:call_node(Node,ts,start,[]),
-    test_helper:call_node(Node,ts,new,[test_space]),
-    test_helper:call_node(Node,db_manager,add_node_to_space,[node(),test_space]),
+    ok = test_helper:call_node(Node,mnesia,delete_schema,[[Node]]),
+    ok = test_helper:call_node(Node,ts,start,[]),
+    ok = test_helper:call_node(Node,ts,new,[test_space]),
+    ok = test_helper:call_node(Node,db_manager,add_node_to_space,[node(),test_space]),
     
     ?assert(db_manager:is_node_in_space(node(), test_space)),
     ?assertEqual(disc_copies, mnesia:table_info(test_space, storage_type)),
-    test_helper:call_node(Node,db_manager,remove_node_from_space,[node(),test_space]),
+    ok = test_helper:call_node(Node,db_manager,remove_node_from_space,[node(),test_space]),
     ?assertNot(db_manager:is_node_in_space(node(), test_space)),
     ?assertEqual(unknown, mnesia:table_info(test_space, storage_type)),
 
@@ -125,13 +125,13 @@ remove_node_from_space_test(_Config) ->
     ok.
 
 list_nodes_in_space_test(_Config) -> 
-    test_helper:clear_db_for_test(),
-    gen_server:start({local, db_manager}, db_manager, [], []),
-    mnesia:create_table(test_space, [{type, bag}]),
-    mnesia:dirty_write({nodes, test_space, another_node@host}),
+    ok = test_helper:clear_db_for_test(),
+    {ok,_} = gen_server:start({local, db_manager}, db_manager, [], []),
+    {atomic,ok} = mnesia:create_table(test_space, [{type, bag}]),
+    ok = mnesia:dirty_write({nodes, test_space, another_node@host}),
 
     ?assertMatch({error,{node_not_in_space,_,_}}, db_manager:list_nodes_in_space(test_space)),    
-    mnesia:dirty_write({nodes, test_space, node()}),
+    ok = mnesia:dirty_write({nodes, test_space, node()}),
     {ok, Nodes} = db_manager:list_nodes_in_space(test_space),
     ?assertEqual(2, lists:foldl(fun (_, Acc) -> Acc +1 end, 0, Nodes)),
     
@@ -146,33 +146,33 @@ list_nodes_in_space_test(_Config) ->
 %%%%%%%%%%%%%%%%%%%%%
 
 ensure_started_test(_Config) ->
-    test_helper:clear_db_for_test(),
+    ok = test_helper:clear_db_for_test(),
     
     ?assertMatch(no, mnesia:system_info(is_running)),
-    db_manager:ensure_started(),
+    ok = db_manager:ensure_started(),
     ?assertMatch(yes, mnesia:system_info(is_running)),
     
     ok.
 
 ensure_stopped_test(_Config) ->
-    test_helper:clear_db_for_test(),
-    mnesia:start(),
+    ok = test_helper:clear_db_for_test(),
+    ok = mnesia:start(),
     
     ?assertMatch(yes, mnesia:system_info(is_running)),
-    db_manager:ensure_stopped(),
+    ok = db_manager:ensure_stopped(),
     ?assertMatch(no, mnesia:system_info(is_running)),
 
     ok.
 
 wait_for_test(_Config) ->
-    test_helper:clear_db_for_test(),
+    ok = test_helper:clear_db_for_test(),
     
-    mnesia:start(),
+    ok = mnesia:start(),
     % wait_for start succed
     ?assertMatch(ok, db_manager:wait_for(start)),
     ?assertMatch({error, _}, db_manager:wait_for(stop)),
     % wait_for stop succed
-    mnesia:stop(),
+    stopped = mnesia:stop(),
     ?assertMatch(ok, db_manager:wait_for(stop)),
     ?assertMatch({error, _}, db_manager:wait_for(start)),
     % wait_for not supported event
@@ -181,8 +181,8 @@ wait_for_test(_Config) ->
     ok.
 
 init_cluster_test(_Config) ->
-    test_helper:clear_db_for_test(),
-    mnesia:start(),
+    ok = test_helper:clear_db_for_test(),
+    ok = mnesia:start(),
     
     ?assertNot(lists:member(nodes, mnesia:system_info(tables))),
     ?assertMatch(ok, db_manager:init_cluster()),
@@ -191,8 +191,8 @@ init_cluster_test(_Config) ->
     ok.
 
 create_disc_schema_test(_Config) ->
-    test_helper:clear_db_for_test(),
-    mnesia:start(), 
+    ok = test_helper:clear_db_for_test(),
+    ok = mnesia:start(), 
 
     ?assertEqual(mnesia:table_info(schema, storage_type), ram_copies),
     ?assertMatch(ok, db_manager:create_disc_schema()),
@@ -201,9 +201,9 @@ create_disc_schema_test(_Config) ->
     ok.
 
 ensure_nodes_table_test(_Config) -> 
-    test_helper:clear_db_for_test(),
-    mnesia:start(),
-    mnesia:change_table_copy_type(schema, node(), disc_copies),
+    ok = test_helper:clear_db_for_test(),
+    ok = mnesia:start(),
+    {atomic,ok} = mnesia:change_table_copy_type(schema, node(), disc_copies),
 
     ?assertMatch(ok, db_manager:ensure_nodes_table()),
     ?assertMatch(ok, db_manager:ensure_nodes_table()),
@@ -211,10 +211,10 @@ ensure_nodes_table_test(_Config) ->
     ok.
 
 space_exists_test(_Config) ->
-    test_helper:clear_db_for_test(),
-    mnesia:start(),
-    mnesia:create_table(s1, []),
-    mnesia:create_table(s2, []),
+    ok = test_helper:clear_db_for_test(),
+    ok = mnesia:start(),
+    {atomic,ok} = mnesia:create_table(s1, []),
+    {atomic,ok} = mnesia:create_table(s2, []),
 
     ?assert(db_manager:space_exists(s1)),
     ?assert(db_manager:space_exists(s2)),
@@ -223,10 +223,10 @@ space_exists_test(_Config) ->
     ok.
 
 create_space_test(_Config) ->
-    test_helper:clear_db_for_test(),
-    mnesia:start(),
-    mnesia:change_table_copy_type(schema, node(), disc_copies),
-    mnesia:create_table(nodes, [{type, bag}]),
+    ok = test_helper:clear_db_for_test(),
+    ok = mnesia:start(),
+    {atomic,ok} = mnesia:change_table_copy_type(schema, node(), disc_copies),
+    {atomic,ok} = mnesia:create_table(nodes, [{type, bag}]),
 
     ?assertMatch(ok, db_manager:create_space(test_space)),
     ?assert(lists:member(test_space, mnesia:system_info(tables))),
@@ -236,16 +236,16 @@ create_space_test(_Config) ->
     ok.
 
 addme_to_space_test(_Config) ->
-    test_helper:clear_db_for_test(),
+    ok = test_helper:clear_db_for_test(),
     Node = test_helper:start_node(node),
-    mnesia:start(),
-    mnesia:change_table_copy_type(schema, node(), disc_copies),
-    mnesia:create_table(nodes, [{type, bag}]),
-    test_helper:call_node(Node,mnesia,delete_schema,[[Node]]),
-    test_helper:call_node(Node,mnesia,start,[]),
-    test_helper:call_node(Node,mnesia,change_config,[extra_db_nodes,[node()]]),
-    test_helper:call_node(Node,mnesia,change_table_copy_type,[schema, Node, disc_copies]),
-    test_helper:call_node(Node,mnesia,create_table,[test_space, [{type,bag}]]),
+    ok = mnesia:start(),
+    {atomic,ok} = mnesia:change_table_copy_type(schema, node(), disc_copies),
+    {atomic,ok} = mnesia:create_table(nodes, [{type, bag}]),
+    ok = test_helper:call_node(Node,mnesia,delete_schema,[[Node]]),
+    ok = test_helper:call_node(Node,mnesia,start,[]),
+    {ok,_} = test_helper:call_node(Node,mnesia,change_config,[extra_db_nodes,[node()]]),
+    {atomic,ok} = test_helper:call_node(Node,mnesia,change_table_copy_type,[schema, Node, disc_copies]),
+    {atomic,ok} = test_helper:call_node(Node,mnesia,create_table,[test_space, [{type,bag}]]),
 
     ?assertNot(db_manager:is_node_in_space(node(), test_space)),
     ?assertEqual(unknown, mnesia:table_info(test_space, storage_type)),
@@ -261,17 +261,17 @@ addme_to_space_test(_Config) ->
     ok.
 
 removeme_from_space_test(_Config) ->
-    test_helper:clear_db_for_test(),
+    ok = test_helper:clear_db_for_test(),
     Node = test_helper:start_node(node),
-    mnesia:start(),
-    mnesia:change_table_copy_type(schema, node(), disc_copies),
-    mnesia:create_table(nodes, [{type, bag}]),
-    test_helper:call_node(Node,mnesia,delete_schema,[[Node]]),
-    test_helper:call_node(Node,mnesia,start,[]),
-    test_helper:call_node(Node,mnesia,change_config,[extra_db_nodes,[node()]]),
-    test_helper:call_node(Node,mnesia,change_table_copy_type,[schema, Node,disc_copies]),
-    test_helper:call_node(Node,mnesia,create_table,[test_space, [{type,bag}]]),
-    db_manager:addme_to_space(test_space),
+    ok = mnesia:start(),
+    {atomic,ok} = mnesia:change_table_copy_type(schema, node(), disc_copies),
+    {atomic,ok} = mnesia:create_table(nodes, [{type, bag}]),
+    ok = test_helper:call_node(Node,mnesia,delete_schema,[[Node]]),
+    ok = test_helper:call_node(Node,mnesia,start,[]),
+    {ok,_} = test_helper:call_node(Node,mnesia,change_config,[extra_db_nodes,[node()]]),
+    {atomic,ok} = test_helper:call_node(Node,mnesia,change_table_copy_type,[schema, Node,disc_copies]),
+    {atomic,ok} = test_helper:call_node(Node,mnesia,create_table,[test_space, [{type,bag}]]),
+    ok = db_manager:addme_to_space(test_space),
 
     ?assert(db_manager:is_node_in_space(node(), test_space)),
     ?assertEqual(disc_copies, mnesia:table_info(test_space, storage_type)),
@@ -287,11 +287,11 @@ removeme_from_space_test(_Config) ->
     ok.
 
 nodes_in_space_test(_Config) ->
-    test_helper:clear_db_for_test(),
-    mnesia:start(),
-    mnesia:create_table(nodes, [{type, bag}]),
-    mnesia:dirty_write({nodes, test_space, node()}),
-    mnesia:dirty_write({nodes, test_space, another_node@host}),
+    ok = test_helper:clear_db_for_test(),
+    ok = mnesia:start(),
+    {atomic,ok} = mnesia:create_table(nodes, [{type, bag}]),
+    ok = mnesia:dirty_write({nodes, test_space, node()}),
+    ok = mnesia:dirty_write({nodes, test_space, another_node@host}),
 
     Nodes = db_manager:nodes_in_space(test_space),
     ?assert(lists:member(node(), Nodes)),
@@ -301,10 +301,10 @@ nodes_in_space_test(_Config) ->
     ok.
 
 is_node_in_space_test(_Config) ->
-    test_helper:clear_db_for_test(),
-    mnesia:start(),
-    mnesia:create_table(nodes, [{type, bag}]),
-    mnesia:dirty_write({nodes, test_space, node()}),
+    ok = test_helper:clear_db_for_test(),
+    ok = mnesia:start(),
+    {atomic,ok} = mnesia:create_table(nodes, [{type, bag}]),
+    ok = mnesia:dirty_write({nodes, test_space, node()}),
 
     ?assert(db_manager:is_node_in_space(node(), test_space)),
     ?assertNot(db_manager:is_node_in_space(another_node@host, test_space)),
@@ -312,28 +312,28 @@ is_node_in_space_test(_Config) ->
     ok.
 
 addme_to_nodes_unsafe_test(_Config) ->
-    test_helper:clear_db_for_test(),
-    mnesia:start(),
-    mnesia:create_table(nodes, [{type, bag}]),
+    ok = test_helper:clear_db_for_test(),
+    ok = mnesia:start(),
+    {atomic,ok} = mnesia:create_table(nodes, [{type, bag}]),
 
     ?assertNot(db_manager:is_node_in_space(node(), test_space)),
     ?assertMatch({atomic, ok}, db_manager:addme_to_nodes_unsafe(test_space)),
     ?assert(db_manager:is_node_in_space(node(), test_space)),
-    mnesia:delete_table(nodes),
+    {atomic,ok} = mnesia:delete_table(nodes),
     ?assertMatch({aborted, _}, db_manager:addme_to_nodes_unsafe(test_space)),
     
     ok.
 
 delme_to_nodes_unsafe_test(_Config) ->
-    test_helper:clear_db_for_test(),
-    mnesia:start(),
-    mnesia:create_table(nodes, [{type, bag}]),
-    mnesia:dirty_write({nodes, test_space, node()}),
+    ok = test_helper:clear_db_for_test(),
+    ok = mnesia:start(),
+    {atomic,ok} = mnesia:create_table(nodes, [{type, bag}]),
+    ok = mnesia:dirty_write({nodes, test_space, node()}),
 
     ?assert(db_manager:is_node_in_space(node(), test_space)),
     ?assertMatch({atomic, ok}, db_manager:delme_to_nodes_unsafe(test_space)),
     ?assertNot(db_manager:is_node_in_space(node(), test_space)),
-    mnesia:delete_table(nodes),
+    {atomic,ok} = mnesia:delete_table(nodes),
     ?assertMatch({aborted, _}, db_manager:delme_to_nodes_unsafe(test_space)),
     
     ok.
