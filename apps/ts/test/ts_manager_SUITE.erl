@@ -47,9 +47,9 @@ end_per_group(_, _) -> ok.
 %%%%%%%%%%%%%%%%%%%%%%%
 
 perform_out_test(_Config) ->
-    test_helper:clear_db_for_test(),
-    mnesia:start(),
-    mnesia:create_table(test_space, [{type, bag}]),
+    ok = test_helper:clear_db_for_test(),
+    ok = mnesia:start(),
+    {atomic,ok} = mnesia:create_table(test_space, [{type, bag}]),
 
     ?assertMatch(ok, ts_manager:perform_out(test_space, {a,b})),
     [{_,_,T}|_] = mnesia:dirty_read(test_space, 2),
@@ -62,10 +62,10 @@ perform_out_test(_Config) ->
     ok.
 
 perform_in_test(_Config) -> 
-    test_helper:clear_db_for_test(),
-    mnesia:start(),
-    mnesia:create_table(test_space, [{type, bag}]),
-    mnesia:dirty_write({test_space, 2, {a,b}}),
+    ok = test_helper:clear_db_for_test(),
+    ok = mnesia:start(),
+    {atomic,ok} = mnesia:create_table(test_space, [{type, bag}]),
+    ok = mnesia:dirty_write({test_space, 2, {a,b}}),
 
     ?assertMatch({ok, {a,b}}, ts_manager:perform_in(test_space, {a,b}, 'infinity')),
     ?assertMatch([], mnesia:dirty_read(test_space, 2)),
@@ -82,10 +82,10 @@ perform_in_test(_Config) ->
     ok.
 
 perform_rd_test(_Config) -> 
-    test_helper:clear_db_for_test(),
-    mnesia:start(),
-    mnesia:create_table(test_space, [{type, bag}]),
-    mnesia:dirty_write({test_space, 2, {a,b}}),
+    ok = test_helper:clear_db_for_test(),
+    ok = mnesia:start(),
+    {atomic,ok} = mnesia:create_table(test_space, [{type, bag}]),
+    ok = mnesia:dirty_write({test_space, 2, {a,b}}),
 
     ?assertMatch({ok, {a,b}}, ts_manager:perform_rd(test_space, {a,b}, 'infinity')),
     {Time, Res} = timer:tc(ts_manager, perform_rd, [test_space, {c,d}, 1000]),
@@ -105,12 +105,12 @@ perform_rd_test(_Config) ->
 %%%%%%%%%%%%%%%%%%%%%
 
 read_tuple_test(_Config) ->
-    test_helper:clear_db_for_test(),
-    mnesia:start(),
-    mnesia:create_table(test_space, [{type, bag}]),
-    mnesia:dirty_write({test_space, 3, {a,b,c}}),
-    mnesia:dirty_write({test_space, 2, {c,d}}),
-    mnesia:dirty_write({test_space, 2, {c,a}}),
+    ok = test_helper:clear_db_for_test(),
+    ok = mnesia:start(),
+    {atomic,ok} = mnesia:create_table(test_space, [{type, bag}]),
+    ok = mnesia:dirty_write({test_space, 3, {a,b,c}}),
+    ok = mnesia:dirty_write({test_space, 2, {c,d}}),
+    ok = mnesia:dirty_write({test_space, 2, {c,a}}),
 
     % Read specific data
     ?assertMatch({ok, {a,b,c}}, ts_manager:read_tuple(test_space, {a,b,c})),
@@ -128,9 +128,9 @@ read_tuple_test(_Config) ->
     ok.
 
 write_tuple_test(_Config) ->
-    test_helper:clear_db_for_test(),
-    mnesia:start(),
-    mnesia:create_table(test_space, [{type, bag}]),
+    ok = test_helper:clear_db_for_test(),
+    ok = mnesia:start(),
+    {atomic,ok} = mnesia:create_table(test_space, [{type, bag}]),
 
     ?assertMatch(ok, ts_manager:write_tuple(test_space, {a,b,c})),
     [{_,_,T}|_] = mnesia:dirty_read(test_space, 3),
@@ -141,10 +141,10 @@ write_tuple_test(_Config) ->
     ok.
 
 delete_tuple_test(_Config) ->
-    test_helper:clear_db_for_test(),
-    mnesia:start(),
-    mnesia:create_table(test_space, [{type, bag}]),
-    mnesia:dirty_write({test_space, 2, {a,b}}),
+    ok = test_helper:clear_db_for_test(),
+    ok = mnesia:start(),
+    {atomic,ok} = mnesia:create_table(test_space, [{type, bag}]),
+    ok = mnesia:dirty_write({test_space, 2, {a,b}}),
 
     ?assertMatch(ok, ts_manager:delete_tuple(test_space, {a,b})),
     ?assertMatch([], mnesia:dirty_read(test_space, 2)),
@@ -154,14 +154,14 @@ delete_tuple_test(_Config) ->
     ok.
 
 subscribe_for_pattern_test(_Config) ->
-    test_helper:clear_db_for_test(),
-    mnesia:start(),
-    mnesia:create_table(test_space,[{type,bag}]),
+    ok = test_helper:clear_db_for_test(),
+    ok = mnesia:start(),
+    {atomic,ok} = mnesia:create_table(test_space,[{type,bag}]),
     Node = test_helper:start_node(node),
-    test_helper:call_node(Node,mnesia,delete_schema,[[Node]]),
-    test_helper:call_node(Node,mnesia,start,[]),
-    test_helper:call_node(Node,mnesia,change_config,[extra_db_nodes,[node()]]),
-    test_helper:call_node(Node,mnesia,add_table_copy,[test_space, Node, ram_copies]),
+    ok = test_helper:call_node(Node,mnesia,delete_schema,[[Node]]),
+    ok = test_helper:call_node(Node,mnesia,start,[]),
+    {ok,_} = test_helper:call_node(Node,mnesia,change_config,[extra_db_nodes,[node()]]),
+    {atomic,ok} = test_helper:call_node(Node,mnesia,add_table_copy,[test_space, Node, ram_copies]),
     
     io:format("~p",[test_helper:call_node(Node,mnesia,info,[])]),
     ?assertMatch({error,timeout},ts_manager:subscribe_for_pattern(test_space,{a,b,c},1000)),

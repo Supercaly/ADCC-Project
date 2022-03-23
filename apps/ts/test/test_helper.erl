@@ -19,11 +19,18 @@ clear_db_for_test() ->
 
 start_node(NodeName) ->
     {ok, HostName} = inet:gethostname(),
-    {ok, Node} = slave:start(HostName, NodeName," -pa `rebar3 path` "),
-    net_adm:ping(Node),
-    Node.
+    case slave:start_link(HostName, NodeName," -pa `rebar3 path` ") of
+        {ok, Node} -> 
+            net_adm:ping(Node),
+            call_node(Node, code, add_paths, [code:get_path()]),
+            Node;
+        {error, {already_running, Node}} -> 
+            stop_node(Node)
+    end.
 
-stop_node(Node) -> slave:stop(Node).
+stop_node(Node) -> 
+    slave:stop(Node),
+    ok.
 
 call_node(Node, Module, Function, Args) ->
     rpc:call(Node, Module, Function, Args).
