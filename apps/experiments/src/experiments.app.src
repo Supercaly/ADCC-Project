@@ -1,8 +1,9 @@
 {application,experiments,
-    [{description, "AAA using OTP"},
-    {vsn, "0.0.1"},
+    [{description, "Application used to experiment with the module ts"},
+    {vsn, "0.1.0"},
     {modules, [
-        nodelib
+        nodelib,
+        pwd_search
     ]},
     {registered, []},
     {applications, [kernel, stdlib, ts_app]}]}.
