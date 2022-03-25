@@ -37,8 +37,14 @@ log_event(Event, StartTime, StopTime) ->
 % init/1 callback from gen_server.
 init(_Args) ->
     process_flag(trap_exit, true),
+    FilePath = case application:get_env(out_path) of
+        undefined -> "./";
+        {ok, P} -> P
+    end,
     FileName = atom_to_list(node()) ++ "-log.txt",
-    {ok, Fd} = file:open(FileName, [read, write]),
+    FullPath = FilePath ++ FileName,
+    ok = filelib:ensure_dir(FullPath),
+    {ok, Fd} = file:open(FullPath, [write]),
     {ok, [Fd]}.
 
 % handle_call/2 callback from gen_server.

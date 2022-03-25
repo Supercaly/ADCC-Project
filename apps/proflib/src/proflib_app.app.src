@@ -10,4 +10,5 @@
     ]},
     {registered, []},
     {applications, [kernel, stdlib]},
-    {mod, {proflib_app, []}}]}.
+    {mod, {proflib_app, []}},
+    {env,[{out_path, "./profiler/"}]}]}.

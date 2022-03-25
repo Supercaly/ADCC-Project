@@ -31,7 +31,6 @@ start_link(Event) when is_atom(Event) ->
 init(Event) ->
     process_flag(trap_exit, true),
     StartTime = erlang:monotonic_time(microsecond),
-    io:format("start ~p~n", [StartTime]),
     {ok, {Event, StartTime}}.
 
 % handle_call/2 callback from gen_server.
@@ -50,7 +49,6 @@ handle_info(_Info, _State) ->
 terminate(_Reason, {Event, StartTime}) ->
     StopTime = erlang:monotonic_time(microsecond),
     proflib_log:log_event(Event, StartTime, StopTime),
-    io:format("stop~n"),
     ok.
 
 % code_change/3 callback from gen_server.

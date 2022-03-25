@@ -2,10 +2,16 @@
 
 -export([
     start/0,
+    start/1,
     stop/0,
     begine/1,
     ende/1
 ]).
+
+start(Context) ->
+    application:load(proflib_app),
+    ok = application:set_env(proflib_app, out_path, Context),
+    start().
 
 start() ->
     case application:start(proflib_app) of
