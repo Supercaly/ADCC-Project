@@ -1,0 +1,13 @@
+{application,proflib_app,
+    [{description, "Profiler library using OTP"},
+    {vsn, "0.1.0"},
+    {modules, [
+        proflib_sup,
+        proflib_app,
+        proflib_log,
+        proflib_event_manager,
+        proflib_event_sup
+    ]},
+    {registered, []},
+    {applications, [kernel, stdlib]},
+    {mod, {proflib_app, []}}]}.

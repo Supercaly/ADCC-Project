@@ -15,3 +15,6 @@ variables-ct*
 
 # mnesia files
 Mnesia*
+
+# log files
+*-log.txt
