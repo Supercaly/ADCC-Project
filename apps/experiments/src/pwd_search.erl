@@ -1,11 +1,40 @@
 -module(pwd_search).
 
 -export([
+    pwd_search_task/3,
     init_spaces/0,
     populate_pwd/1,
     master_task/1,
     worker_task/0
 ]).
+
+% Perform the password search test case
+% NOTE: This code is run by the supervisor node
+pwd_search_task(NMasters, NWorkers, NPwds) ->
+    ok = application:start(proflib),
+
+    nodelib:init_sup(),
+    {Masters, Workers} = nodelib:spawn_nodes(NMasters, NWorkers),
+    pwd_search:init_spaces(),
+    Hashes = pwd_search:populate_pwd(NPwds),
+
+    % TODO: Figure out the termination with 2 or more masters
+    lists:foreach(fun(Node) ->
+        nodelib:run_on_node(Node, fun() ->
+            {Time,_} = timer:tc(pwd_search, master_task, [Hashes]),
+            io:format("Node ~p took ~pus~n", [node(), Time])
+        end)
+    end, Masters),
+
+    lists:foreach(fun(Node) ->
+        nodelib:run_on_node(Node, fun() ->
+            {Time,_} = timer:tc(pwd_search, worker_task, []),
+            io:format("Node ~p took ~pus~n", [node(), Time])
+        end)
+    end, Workers),
+
+    nodelib:wait_for_nodes(NMasters),
+    ok.
 
 % Initialize the needed spaces
 init_spaces() ->
@@ -26,7 +55,8 @@ populate_pwd(N) ->
     end, lists:seq(0,N-1)).
 
 % Task run by the master node
-master_task(Hashes) ->      
+% NOTE: This code is run by the master node
+master_task(Hashes) -> 
     % sends hash requests to workers
     lists:foreach(fun(Hash) ->
         ok = ts:out(task_space, {search_task, Hash})
@@ -39,6 +69,7 @@ master_task(Hashes) ->
     ok.
 
 % Task run by the worker node
+% NOTE: This code is run by the worker node
 worker_task() ->
     % wait for new hash to search
     {ok, {search_task, Hash}} = ts:in(task_space,{search_task, any}),
