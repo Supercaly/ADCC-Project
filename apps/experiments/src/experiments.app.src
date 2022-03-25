@@ -6,4 +6,4 @@
         pwd_search
     ]},
     {registered, []},
-    {applications, [kernel, stdlib, ts_app]}]}.
+    {applications, [kernel, stdlib, ts_app, proflib_app]}]}.

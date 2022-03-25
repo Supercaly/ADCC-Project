@@ -26,7 +26,10 @@ get_supervisor() ->
 -spec spawn_node(Name :: atom()) -> node().
 spawn_node(Name) ->
     % TODO: Passing source as -pa can cause problems under windows paths
-    Args = " -pa _build/default/lib/experiments/ebin -pa _build/default/lib/ts_app/ebin -secret cookie",
+    Args = " -pa _build/default/lib/experiments/ebin" ++
+        " -pa _build/default/lib/ts_app/ebin" ++
+        " -pa _build/default/lib/proflib_app/ebin" ++
+        " -secret cookie",
     {ok, Node} = slave:start_link(localhost,Name,Args),
     pong = net_adm:ping(Node),
     ok = rpc:call(Node, mnesia, delete_schema, [[Node]]),

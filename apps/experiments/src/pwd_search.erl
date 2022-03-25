@@ -11,10 +11,12 @@
 % Perform the password search test case
 % NOTE: This code is run by the supervisor node
 pwd_search_task(NMasters, NWorkers, NPwds) ->
-    ok = application:start(proflib),
-
     nodelib:init_sup(),
     {Masters, Workers} = nodelib:spawn_nodes(NMasters, NWorkers),
+    lists:foreach(fun(N) ->
+        ok = rpc:call(N, proflib, start, ["./profiler/pwd/"])
+    end, Masters++Workers),
+
     pwd_search:init_spaces(),
     Hashes = pwd_search:populate_pwd(NPwds),
 
@@ -59,7 +61,9 @@ populate_pwd(N) ->
 master_task(Hashes) -> 
     % sends hash requests to workers
     lists:foreach(fun(Hash) ->
-        ok = ts:out(task_space, {search_task, Hash})
+        proflib:begine(write_task),
+        ok = ts:out(task_space, {search_task, Hash}),
+        proflib:ende(write_task)
     end, Hashes),
 
     io:format("Node '~p' has sent all his requests~n", [node()]),
@@ -73,10 +77,17 @@ master_task(Hashes) ->
 worker_task() ->
     % wait for new hash to search
     {ok, {search_task, Hash}} = ts:in(task_space,{search_task, any}),
+    
     % find the pwd for given hash in the pwd_space
+    proflib:begine(read_pwd),
     {ok, {Pwd, _Hash}} = ts:rd(pwd_space, {any,Hash}),
+    proflib:ende(read_pwd),
+    
     % respond with the found password
+    proflib:begine(write_pwd),
     ok = ts:out(task_space, {found_password, Hash, Pwd}),
+    proflib:ende(write_pwd),
+    
     % search next hash
     worker_task(),
     ok.
