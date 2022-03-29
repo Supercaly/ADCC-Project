@@ -23,15 +23,17 @@ pwd_search_task(NMasters, NWorkers, NPwds) ->
     % TODO: Figure out the termination with 2 or more masters
     lists:foreach(fun(Node) ->
         nodelib:run_on_node(Node, fun() ->
-            {Time,_} = timer:tc(pwd_search, master_task, [Hashes]),
-            io:format("Node ~p took ~pus~n", [node(), Time])
+            proflib:begine(task),
+            pwd_search:master_task(Hashes),
+            proflib:ende(task)
         end)
     end, Masters),
 
     lists:foreach(fun(Node) ->
         nodelib:run_on_node(Node, fun() ->
-            {Time,_} = timer:tc(pwd_search, worker_task, []),
-            io:format("Node ~p took ~pus~n", [node(), Time])
+            proflib:begine(task),
+            pwd_search:worker_task(),
+            proflib:ende(task)
         end)
     end, Workers),
 
