@@ -107,14 +107,14 @@ worker_task(RowSize) ->
     % wait for the corresponding row of matrix B
     proflib:begine(read_matrix_b),
     {ok, {_, _, RowB, _}} = ts:in(matrix_space, {matrixB, Idx rem RowSize, any, any}),
-   proflib:ende(read_matrix_b),
+    proflib:ende(read_matrix_b),
 
     % perform partial multiplication
     RowC = lists:map(fun(E) -> E * ValA end, RowB),
 
     % send the calculated row of matrix C
     proflib:begine(write_matrix_c),
-    ts:out(matrix_space, {matrixC, Idx div RowSize, RowC}),
+    ts:out(matrix_space, {matrixC, Idx div RowSize, RowC, rand:uniform()}),
     proflib:ende(write_matrix_c),
 
     worker_task(RowSize),
@@ -132,7 +132,7 @@ wait_for_matrix(Result, 0) -> lists:append(Result);
 wait_for_matrix(PartialMatrix, N) ->
     % wait for a computed row of matrix C
     proflib:ende(read_matrix_c),
-    {ok, {_, Idx, ValC}} = ts:in(matrix_space, {matrixC, any, any}),
+    {ok, {_, Idx, ValC, _}} = ts:in(matrix_space, {matrixC, any, any, any}),
     proflib:ende(read_matrix_c),
     
     % append the row to the matrix
