@@ -6,7 +6,7 @@
     run_on_node/2,
     init_sup/0,
     get_supervisor/0,
-    wait_for_nodes/1
+    wait_for_master/0
 ]).
 
 % Init the supervisor node
@@ -55,12 +55,9 @@ run_on_node(Node, Fun) ->
     spawn(Node, Fun),
     ok.
 
-% Wait for the completion of N nodes
--spec wait_for_nodes(N :: integer()) -> ok.
-wait_for_nodes(0) -> ok;
-wait_for_nodes(N) ->
+% Wait for the master node to complete the execution
+-spec wait_for_master() -> ok.
+wait_for_master() ->
     receive
-        {finished, Node} ->
-            io:format("Node '~p' has finish~n", [Node]),
-            wait_for_nodes(N-1)
+        {finished, M} -> io:format("Master node '~p' has finish~n", [M])
     end.
