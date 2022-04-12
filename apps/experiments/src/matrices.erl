@@ -63,7 +63,9 @@ master_task(MatrixSize) ->
     
     % send each element of matrix A as a message
     lists:foldl(fun(Elem, Index) ->
+        proflib:begine(write_matrix_a),
         ts:out(matrix_space, {matrixA, Index, Elem}),
+        proflib:ende(write_matrix_a),
         Index + 1
     end, 0, MatrixA),
 
@@ -73,7 +75,9 @@ master_task(MatrixSize) ->
     MatrixBRows = split_matrix_by_row(MatrixB, MatrixSize),
     lists:foreach(fun(Rep) ->
         lists:foldl(fun(Row, Index) ->
+            proflib:begine(write_matrix_b),
             ts:out(matrix_space, {matrixB, Index, Row, Rep}),
+            proflib:ende(write_matrix_b),
             Index+1
         end, 0, MatrixBRows)
     end, lists:seq(1, trunc(math:sqrt(MatrixSize)))),
@@ -96,17 +100,23 @@ master_task(MatrixSize) ->
 % NOTE: This code is run by the worker node
 worker_task(RowSize) ->
     % wait for one element of matrix A
+    proflib:begine(read_matrix_a),
     {ok, {_, Idx, ValA}} = ts:in(matrix_space, {matrixA, any, any}),
+    proflib:ende(read_matrix_a),
    
     % wait for the corresponding row of matrix B
+    proflib:begine(read_matrix_b),
     {ok, {_, _, RowB, _}} = ts:in(matrix_space, {matrixB, Idx rem RowSize, any, any}),
-   
+   proflib:ende(read_matrix_b),
+
     % perform partial multiplication
     RowC = lists:map(fun(E) -> E * ValA end, RowB),
 
     % send the calculated row of matrix C
+    proflib:begine(write_matrix_c),
     ts:out(matrix_space, {matrixC, Idx div RowSize, RowC}),
-   
+    proflib:ende(write_matrix_c),
+
     worker_task(RowSize),
     ok.
 
@@ -121,8 +131,10 @@ wait_for_matrix([], N) ->
 wait_for_matrix(Result, 0) -> lists:append(Result);
 wait_for_matrix(PartialMatrix, N) ->
     % wait for a computed row of matrix C
+    proflib:ende(read_matrix_c),
     {ok, {_, Idx, ValC}} = ts:in(matrix_space, {matrixC, any, any}),
-
+    proflib:ende(read_matrix_c),
+    
     % append the row to the matrix
     {NewMatrix,_} = lists:mapfoldl(fun(Row, Index) ->
         if 
