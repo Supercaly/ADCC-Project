@@ -6,7 +6,6 @@
     run_on_node/2,
     init_sup/0,
     get_supervisor/0,
-    wait_for_nodes/1,
     wait_for_master/0
 ]).
 
@@ -55,17 +54,6 @@ spawn_nodes(NMaster, NWorker) ->
 run_on_node(Node, Fun) ->
     spawn(Node, Fun),
     ok.
-
-% Wait for the completion of N nodes
-% TODO: Remove this function
--spec wait_for_nodes(N :: integer()) -> ok.
-wait_for_nodes(0) -> ok;
-wait_for_nodes(N) ->
-    receive
-        {finished, Node} ->
-            io:format("Node '~p' has finish~n", [Node]),
-            wait_for_nodes(N-1)
-    end.
 
 % Wait for the master node to complete the execution
 -spec wait_for_master() -> ok.
