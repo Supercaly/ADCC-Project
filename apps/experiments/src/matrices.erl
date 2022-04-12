@@ -18,15 +18,15 @@ matrix_multiplication_task(NWorkers, MatrixSize) ->
     nodelib:run_on_node(Master, fun() ->
         proflib:begine(task),
         master_task(MatrixSize),
-        proflib:ende(task)
+        proflib:ende(task),
+        case nodelib:get_supervisor() of
+            undefined -> exit({supervisor_undefined});
+            Pid -> Pid!{finished, node()}
+        end
     end),
 
     lists:foreach(fun(Node) ->
-        nodelib:run_on_node(Node, fun() ->
-            proflib:begine(task),
-            worker_task(trunc(math:sqrt(MatrixSize))),
-            proflib:ende(task)
-        end)
+        nodelib:run_on_node(Node, fun() -> worker_task(trunc(math:sqrt(MatrixSize))) end)
     end, Workers),
 
     nodelib:wait_for_master(),
@@ -89,11 +89,6 @@ master_task(MatrixSize) ->
     io:format("Matrix C:~n"),
     print_matrix(Res, MatrixSize),
 
-    % Tell the supervisor the task is complete
-    case nodelib:get_supervisor() of
-        undefined -> exit({supervisor_undefined});
-        Pid -> Pid!{finished, node()}
-    end,
     ok.
 
 % Task run by the worker node
