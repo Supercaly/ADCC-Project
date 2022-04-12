@@ -1,4 +1,4 @@
--module(matrices).
+-module(matrix_mult).
 
 -export([
     matrix_multiplication_task/2

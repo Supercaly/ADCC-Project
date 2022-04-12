@@ -15,7 +15,7 @@ usage(Io) ->
 main(["pwd", NWorkers, NPwds]) ->
     pwd_search:pwd_search_task(list_to_integer(NWorkers), list_to_integer(NPwds));    
 main(["matrix", NWorkers, Size]) ->
-    matrices:matrix_multiplication_task(list_to_integer(NWorkers), list_to_integer(Size));
+    matrix_mult:matrix_multiplication_task(list_to_integer(NWorkers), list_to_integer(Size));
 main(["-h"]) ->
     usage(standard_io);
 main(_) ->
