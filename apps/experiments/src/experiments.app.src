@@ -1,0 +1,9 @@
+{application,experiments,
+    [{description, "Application used to experiment with the module ts"},
+    {vsn, "0.1.0"},
+    {modules, [
+        nodelib,
+        pwd_search
+    ]},
+    {registered, []},
+    {applications, [kernel, stdlib, ts_app, proflib_app]}]}.

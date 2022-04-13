@@ -1,6 +1,9 @@
+# erlang files
 *.beam
 *.app
+_build/
 
+# ct files
 ct_run.*
 all_runs.html
 index.html
@@ -10,4 +13,9 @@ jquery-latest.js
 jquery.tablesorter.min.js
 variables-ct*
 
+# mnesia files
 Mnesia*
+
+# log files
+*-log.txt
+profiler/

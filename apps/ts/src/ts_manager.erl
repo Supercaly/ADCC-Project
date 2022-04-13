@@ -97,7 +97,7 @@ perform_in(Space, Pattern, Timeout) when
             case ReadResult of
                 {ok, Tuple} -> 
                     case gen_server:call(Space, {delete_tuple, Tuple}) of
-                        {error, no_tuples} -> perform_in(Space, Tuple, Timeout);
+                        {error, no_tuples} -> perform_in(Space, Pattern, Timeout);
                         ok -> {ok, Tuple};
                         Error -> Error
                     end;
