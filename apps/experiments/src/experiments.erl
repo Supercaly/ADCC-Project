@@ -13,9 +13,11 @@ usage(Io) ->
     io:format(Io, "~n", []).
 
 main(["pwd", NWorkers, NPwds]) ->
-    pwd_search:pwd_search_task(list_to_integer(NWorkers), list_to_integer(NPwds));    
+    pwd_search:pwd_search_task(list_to_integer(NWorkers), list_to_integer(NPwds)),
+    stats:process_dir("./profiler/pwd/");
 main(["matrix", NWorkers, Size]) ->
-    matrix_mult:matrix_multiplication_task(list_to_integer(NWorkers), list_to_integer(Size));
+    matrix_mult:matrix_multiplication_task(list_to_integer(NWorkers), list_to_integer(Size)),
+    stats:process_dir("./profiler/matrix/");
 main(["-h"]) ->
     usage(standard_io);
 main(_) ->

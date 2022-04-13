@@ -81,9 +81,9 @@ worker_task() ->
     proflib:ende(search_pwd),
     
     % respond with the found password
-    proflib:begine(ansker_pwd),
+    proflib:begine(answer_pwd),
     ok = ts:out(task_space, {found_password, Hash, Pwd}),
-    proflib:ende(ansker_pwd),
+    proflib:ende(answer_pwd),
     
     % search next hash
     worker_task(),
