@@ -1,14 +1,21 @@
 -module(matrix_mult).
 
 -export([
-    matrix_multiplication_task/2
+    matrix_multiplication_task/3
 ]).
+
+% -define(PRINT_MATRIX, 0).
 
 % Perform the matrix multiplication test case
 % NOTE: This code is run by the supervisor node
-matrix_multiplication_task(NWorkers, MatrixSize) ->
+%
+% Parameters:
+%  NNodes number of worker nodes
+%  WorkersPerNode number of workers per node
+%  MatrixSize size of the matrices to compute
+matrix_multiplication_task(NNodes, WorkersPerNode, MatrixSize) ->
     nodelib:init_sup(),
-    {[Master], Workers} = nodelib:spawn_nodes(1, NWorkers),
+    {[Master], Workers} = nodelib:spawn_nodes(1, NNodes),
     lists:foreach(fun(N) ->
         ok = rpc:call(N, proflib, start, ["./profiler/matrix/"])
     end, [Master]++Workers),
@@ -16,9 +23,8 @@ matrix_multiplication_task(NWorkers, MatrixSize) ->
     init_space(),
     
     nodelib:run_on_node(Master, fun() ->
-        proflib:begine(task),
         master_task(MatrixSize),
-        proflib:ende(task),
+        % tell the supervisor the work is done
         case nodelib:get_supervisor() of
             undefined -> exit({supervisor_undefined});
             Pid -> Pid!{finished, node()}
@@ -26,7 +32,12 @@ matrix_multiplication_task(NWorkers, MatrixSize) ->
     end),
 
     lists:foreach(fun(Node) ->
-        nodelib:run_on_node(Node, fun() -> worker_task(trunc(math:sqrt(MatrixSize))) end)
+        lists:foreach(fun(TaskID) ->
+            nodelib:run_on_node(Node, fun() -> 
+                RowSize = trunc(math:sqrt(MatrixSize)),
+                worker_task(TaskID, RowSize) 
+            end)
+        end, lists:seq(0, WorkersPerNode-1))
     end, Workers),
 
     nodelib:wait_for_master(),
@@ -53,19 +64,19 @@ split_matrix_by_row(Matrix, Size) ->
 % Task run by the master node
 % NOTE: This code is run by the master node
 master_task(MatrixSize) -> 
+    proflib:begin_event(task),
+
     % generate two matrices
     MatrixA = generate_matrix(MatrixSize),
     MatrixB = generate_matrix(MatrixSize),
-    io:format("Matrix A:~n"),
-    print_matrix(MatrixA, MatrixSize),
-    io:format("Matrix B:~n"),
-    print_matrix(MatrixB, MatrixSize),
+    print_matrix("Matrix A", MatrixA, MatrixSize),
+    print_matrix("Matrix B", MatrixB, MatrixSize),
     
     % send each element of matrix A as a message
     lists:foldl(fun(Elem, Index) ->
-        proflib:begine(write_matrix_a),
+        proflib:begin_event(write_matrix_a),
         ts:out(matrix_space, {matrixA, Index, Elem}),
-        proflib:ende(write_matrix_a),
+        proflib:end_event(write_matrix_a),
         Index + 1
     end, 0, MatrixA),
 
@@ -75,9 +86,9 @@ master_task(MatrixSize) ->
     MatrixBRows = split_matrix_by_row(MatrixB, MatrixSize),
     lists:foreach(fun(Rep) ->
         lists:foldl(fun(Row, Index) ->
-            proflib:begine(write_matrix_b),
+            proflib:begin_event(write_matrix_b),
             ts:out(matrix_space, {matrixB, Index, Row, Rep}),
-            proflib:ende(write_matrix_b),
+            proflib:end_event(write_matrix_b),
             Index+1
         end, 0, MatrixBRows)
     end, lists:seq(1, trunc(math:sqrt(MatrixSize)))),
@@ -86,33 +97,33 @@ master_task(MatrixSize) ->
     
     % wait for the workers to respond with matrix C
     Res = wait_for_matrix([], MatrixSize),
-    io:format("Matrix C:~n"),
-    print_matrix(Res, MatrixSize),
+    print_matrix("Matrix C", Res, MatrixSize),
 
+    proflib:end_event(task),
     ok.
 
 % Task run by the worker node
 % NOTE: This code is run by the worker node
-worker_task(RowSize) ->
+worker_task(TaskID, RowSize) ->
     % wait for one element of matrix A
-    proflib:begine(read_matrix_a),
+    proflib:begin_task(TaskID, read_matrix_a),
     {ok, {_, Idx, ValA}} = ts:in(matrix_space, {matrixA, any, any}),
-    proflib:ende(read_matrix_a),
+    proflib:end_task(TaskID, read_matrix_a),
    
     % wait for the corresponding row of matrix B
-    proflib:begine(read_matrix_b),
+    proflib:begin_task(TaskID, read_matrix_b),
     {ok, {_, _, RowB, _}} = ts:in(matrix_space, {matrixB, Idx rem RowSize, any, any}),
-    proflib:ende(read_matrix_b),
+    proflib:end_task(TaskID, read_matrix_b),
 
     % perform partial multiplication
     RowC = lists:map(fun(E) -> E * ValA end, RowB),
 
     % send the calculated row of matrix C
-    proflib:begine(write_matrix_c),
+    proflib:begin_task(TaskID, write_matrix_c),
     ts:out(matrix_space, {matrixC, Idx div RowSize, RowC, rand:uniform()}),
-    proflib:ende(write_matrix_c),
+    proflib:end_task(TaskID, write_matrix_c),
 
-    worker_task(RowSize),
+    worker_task(TaskID, RowSize),
     ok.
 
 % Wait for all the workers to output thei partial calculation
@@ -126,9 +137,9 @@ wait_for_matrix([], N) ->
 wait_for_matrix(Result, 0) -> lists:append(Result);
 wait_for_matrix(PartialMatrix, N) ->
     % wait for a computed row of matrix C
-    proflib:ende(read_matrix_c),
+    proflib:begin_event(read_matrix_c),
     {ok, {_, Idx, ValC, _}} = ts:in(matrix_space, {matrixC, any, any, any}),
-    proflib:ende(read_matrix_c),
+    proflib:end_event(read_matrix_c),
     
     % append the row to the matrix
     {NewMatrix,_} = lists:mapfoldl(fun(Row, Index) ->
@@ -142,7 +153,9 @@ wait_for_matrix(PartialMatrix, N) ->
     wait_for_matrix(NewMatrix, N-1).
 
 % Print a matrix to standrard output
-print_matrix(Matrix, Size) ->
+-ifdef(PRINT_MATRIX).
+print_matrix(Name, Matrix, Size) ->
+    io:format("~s:~n",[Name]),
     lists:foreach(fun(R) -> 
         io:format("  "),
         lists:foreach(fun(E) ->
@@ -150,3 +163,6 @@ print_matrix(Matrix, Size) ->
         end, R),
         io:format("~n")
     end, split_matrix_by_row(Matrix, Size)).
+-else.
+print_matrix(_,_,_) -> ok.
+-endif.

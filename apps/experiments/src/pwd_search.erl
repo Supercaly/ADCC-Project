@@ -1,14 +1,19 @@
 -module(pwd_search).
 
 -export([
-    pwd_search_task/2
+    pwd_search_task/3
 ]).
 
 % Perform the password search test case
 % NOTE: This code is run by the supervisor node
-pwd_search_task(NWorkers, NPwds) ->
+%
+% Parameters:
+%  NNodes number of worker nodes
+%  WorkersPerNode number of workers per node
+%  NPwds number of passwords to generate
+pwd_search_task(NNodes, WorkersPerNode, NPwds) ->
     nodelib:init_sup(),
-    {[Master], Workers} = nodelib:spawn_nodes(1, NWorkers),
+    {[Master], Workers} = nodelib:spawn_nodes(1, NNodes),
     lists:foreach(fun(N) ->
         ok = rpc:call(N, proflib, start, ["./profiler/pwd/"])
     end, [Master]++Workers),
@@ -17,9 +22,8 @@ pwd_search_task(NWorkers, NPwds) ->
     Hashes = populate_pwd(NPwds),
 
     nodelib:run_on_node(Master, fun() ->
-        proflib:begine(task),
         master_task(Hashes),
-        proflib:ende(task),
+        % tell the supervisor the work is done
         case nodelib:get_supervisor() of
             undefined -> exit({supervisor_undefined});
             Pid -> Pid!{finished, node()}
@@ -27,7 +31,9 @@ pwd_search_task(NWorkers, NPwds) ->
     end),
 
     lists:foreach(fun(Node) ->
-        nodelib:run_on_node(Node, fun() -> worker_task() end)
+        lists:foreach(fun(TaskID) ->
+            nodelib:run_on_node(Node, fun() -> worker_task(TaskID) end)
+        end, lists:seq(0, WorkersPerNode-1))
     end, Workers),
 
     nodelib:wait_for_master(),
@@ -54,39 +60,43 @@ populate_pwd(N) ->
 % Task run by the master node
 % NOTE: This code is run by the master node
 master_task(Hashes) -> 
+    proflib:begin_event(task),
+    
     % sends hash requests to workers
     lists:foreach(fun(Hash) ->
-        proflib:begine(ask_for_hash),
+        proflib:begin_event(ask_for_hash),
         ok = ts:out(task_space, {search_task, Hash}),
-        proflib:ende(ask_for_hash)
+        proflib:end_event(ask_for_hash)
     end, Hashes),
 
     io:format("Node '~p' has sent all his requests~n", [node()]),
 
     % wait for worker to respond with passwords
     ok = wait_for_passwords(length(Hashes)),
+    
+    proflib:end_event(task),
     ok.
 
 % Task run by the worker node
 % NOTE: This code is run by the worker node
-worker_task() ->
+worker_task(TaskID) ->
     % wait for new hash to search
-    proflib:begine(read_task),
+    proflib:begin_task(TaskID, read_task),
     {ok, {search_task, Hash}} = ts:in(task_space,{search_task, any}),
-    proflib:ende(read_task),
+    proflib:end_task(TaskID, read_task),
     
     % find the pwd for given hash in the pwd_space
-    proflib:begine(search_pwd),
+    proflib:begin_task(TaskID, search_pwd),
     {ok, {Pwd, _Hash}} = ts:rd(pwd_space, {any,Hash}),
-    proflib:ende(search_pwd),
+    proflib:end_task(TaskID, search_pwd),
     
     % respond with the found password
-    proflib:begine(answer_pwd),
+    proflib:begin_task(TaskID, answer_pwd),
     ok = ts:out(task_space, {found_password, Hash, Pwd}),
-    proflib:ende(answer_pwd),
+    proflib:end_task(TaskID, answer_pwd),
     
     % search next hash
-    worker_task(),
+    worker_task(TaskID),
     ok.
 
 % Return a string hash from some data
@@ -97,7 +107,7 @@ create_hash(Data) ->
 % Wait for workers to find N passwords then finish the task
 wait_for_passwords(0) -> ok;
 wait_for_passwords(N) ->
-    proflib:begine(read_result),
+    proflib:begin_event(read_result),
     {ok, {found_password, _Hash, _Pwd}} = ts:in(task_space, {found_password, any, any}),
-    proflib:ende(read_result),
+    proflib:end_event(read_result),
     wait_for_passwords(N-1).

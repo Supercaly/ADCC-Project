@@ -59,5 +59,5 @@ run_on_node(Node, Fun) ->
 -spec wait_for_master() -> ok.
 wait_for_master() ->
     receive
-        {finished, M} -> io:format("Master node '~p' has finish~n", [M])
+        {finished, M} -> io:format("Master node '~p' has finished~n", [M])
     end.
