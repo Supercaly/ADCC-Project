@@ -4,8 +4,10 @@
     start/0,
     start/1,
     stop/0,
-    begine/1,
-    ende/1
+    begin_event/1,
+    end_event/1,
+    begin_task/2,
+    end_task/2
 ]).
 
 start(Context) ->
@@ -27,8 +29,14 @@ stop() ->
         Other -> Other
     end.
 
-begine(Event) when is_atom(Event) -> 
+begin_event(Event) when is_atom(Event) -> 
     proflib_event_sup:start_event(Event).
 
-ende(Event) when is_atom(Event) -> 
+end_event(Event) when is_atom(Event) -> 
     proflib_event_sup:stop_event(Event).
+
+begin_task(TaskId, EventName) ->
+    begin_event(list_to_atom(lists:flatten(io_lib:format("task_~b_~s",[TaskId,EventName])))).
+
+end_task(TaskId, EventName) ->
+    end_event(list_to_atom(lists:flatten(io_lib:format("task_~b_~s",[TaskId,EventName])))).

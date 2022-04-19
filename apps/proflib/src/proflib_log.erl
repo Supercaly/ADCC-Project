@@ -53,10 +53,7 @@ handle_call(_Request, _From, _State) ->
 
 % handle_cast/2 callback from gen_server.
 handle_cast({new_event, Event, StartTime, StopTime}, [File]) ->
-    Msg = io_lib:format("~p ~p ~p ~p~n", [Event, 
-        StartTime, 
-        StopTime,
-        (StopTime - StartTime)]),
+    Msg = io_lib:format("~p ~p~n", [Event, (StopTime - StartTime)]),
     ok = file:write(File, Msg),
     {noreply, [File]}.
 
