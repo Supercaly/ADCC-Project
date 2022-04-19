@@ -1,3 +1,9 @@
 % !TEX root = ice2022.tex
 
-Tuple space is 
+Several paradigms for parallel and distributed computing have been theorised and developed so far, and all of them differ either by the communication mechanism they use or by the level of abstraction they offer to the programmers. Among these, we can list those based on \emph{message passing} like remote procedure call (RPC), remote method invocation (RMI), distributed objects, message passing interface MPI; and those based on \emph{shared memory} like software transactional memory, tuple space~\cite{Gelernter85}, shared objects and  openMP~\cite{Mattson03}. Among these, the one which is less used is tuple space. Despite its simplicity, the lack of a reference implementation for this paradigm has prevented its wide spreading~\cite{BuravlevNM18}.
+
+
+Tuple space is an abstraction of shared and distributed memory, made popular by the Linda programming language~\cite{Gelernter85}. Its idea is very simple and intuitive: agents communicate and synchonise each other by writing and reading data from a shared repository. This is also referred as the black-board metaphor. 
+It consists of a (shared) repository of tuples (e.g., vectors of values) where agents can read, write or withdrawn (i.e., consume) tuples in an atomic way. 
+The operations of reading and withdrawing use  \emph{pattern-matching} to access to the repository.
+ These are also blocking operations:  if there are no tuples matching a particular pattern, then the agent performing the operation is blocked until a new matching tuple is produced (by another agent). The simplicity of this coordination model makes very intuitive and simple to implement various syncrhonisation mechanisms such as semaphores, synchronisation barriers, randezvous and so on.
