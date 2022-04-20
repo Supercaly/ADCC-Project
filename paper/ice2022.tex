@@ -39,8 +39,11 @@ Tuple space is a paradigm for parallel and distributed computing, made popular b
 The idea of tuple space is very simple: it consists of a (distributed) repository where agents can read, write and withdrawn tuples in an atomic way. Tuples can contain arbitrary values, and are accessed by means of pattern-matching. Despite its simplicity, there is a lack of working implementations due to the fact that guaranteeng a distributed tuple space with atomic operations may lead to consistency and performances problems.  In this paper, we try to cope with this  problems by resorting to a programming language which is natively designed to work in distributed environments: Erlang. 
 \end{abstract}
 
-\section{Introduction}
+\section{Introduction}\label{sec:intro}
 \input{intro}
+
+\section{Erlang} \label{sec:erlang}
+\input{lang}
 
 \nocite{*}
 \bibliographystyle{eptcs}

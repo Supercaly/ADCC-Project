@@ -11,8 +11,8 @@ The operations of reading and withdrawing use  \emph{pattern-matching} to access
  \noindent In the code above, process $A$ produces, via the out operation, a tuple of the form $\tuple{\str{sum},2,3}$ indicating the fact it wants
  another process to perform the task $\str{sum}$. Process $B$ consumes a tuple which satisfy the pattern $\tuple{\str{sum},x,y}$. This pattern will match any tuple with 3 elements 
   whose first element is the exact string
- $\str{sum}$. Moreover, it  binds the second and third element of such a tuple to the variables $x$ and $y$, respectively. To compute the sum, process $B$ simply emits a tuple of the form $\tuple{\str{res},x+y}$. Let us not that what is shown in Figure~\ref{fig:example} is just one possible execution, since the pattern used by process $B$ at line
- $4$ could also match the tuple $\tuple{\str{sum},4,7}$.
+ $\str{sum}$. Moreover, it  binds the second and third element of such a tuple to the variables $x$ and $y$, respectively. To compute the sum, process $B$ simply emits a tuple of the form $\tuple{\str{res},x+y}$. Let us note that what is shown in Figure~\ref{fig:example} is just one possible execution, since the pattern used by process $B$ at line
+ $4$ could also match the tuple $\tuple{\str{sum},4,7}$. Also, the Linda model provides time and  space decoupling~\cite{EugsterFGK03}, meaning that a tuple can survive to its producer. This is rendered in Figure~\ref{fig:example} by the tuple $\tuple{\str{sum},4,7}$ which is already present in the tuple space during the execution of $A$ and $B$. The simplicity of the model comes at the cost of inefficiency when implementing it: a tuple space can be distributed, and hence one has to deal with replicas and consistency, and more importantly in and out operation are atomic. In the last decades there have been several implementation of tuple space, but all of them suffer from performance issues~\cite{BuravlevNM18}.
  
  \begin{figure}
 \centering
@@ -20,3 +20,5 @@ The operations of reading and withdrawing use  \emph{pattern-matching} to access
 	\label{fig:example}
 	\caption{Example of tuple space}
  \end{figure}
+ 
+  In this paper we take a detour on what has been done so far about tuple space implementations, by using a language which is designed to work with distributed systems and comes with an ecosystem for failure handling: Erlang. The structure of the paper is as follows: in section~\ref{sec:erlang} we introduce Erlang, its concurrency model and the OTP ecosystem. %Section~\ref{sec:impl} is about our implementation \cdots
