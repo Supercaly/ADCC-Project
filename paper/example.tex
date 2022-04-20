@@ -26,16 +26,16 @@
   commentstyle=\color{dkgreen},       % comment style
   stringstyle=\color{mauve},         % string literal style
 %   escapeinside={\%*}{*)},            % if you want to add LaTeX within your code
-%   morekeywords={*,...}               % if you want to add more keywords to the set
+  morekeywords={out,in}               % if you want to add more keywords to the set
 }
 \begin{multicols}{2}
 \begin{lstlisting}[language=erlang]
-process_A():
-	out("sum",2,3)
+A():
+	out("sum",2,3)	
 \end{lstlisting}
 \columnbreak
 \begin{lstlisting}[firstnumber=3]
-process_B(): 
+B(): 
 	in("sum",x,y)
 	out("res",x+y)	
 \end{lstlisting}
