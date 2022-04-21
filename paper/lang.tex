@@ -1,2 +1,3 @@
 % !TEX root = ice2022.tex
-
+Erlang~\cite{Cesarini,Armstrong} is a general purpose, functional, concurrent programming language originally developed by Ericsson.
+The peculiarity of Erlang is that is has been developed to work with fault resiliant distributed systems (originally telephony switches), hence it natively supports high degree of concurrency, light-weight processes and  failure mechanisms. Erlang concurrency model is based on the Actor model~\cite{actor}: an actor is a light-weight process endowed with a mailbox and univocally identified by a process ID (PID). PIDs are the only way to know actors and to communicate with them: to send a message to an actor one needs to know its PID. Also, PIDs can be send around with messages, making the discovery of actors very simple. 
